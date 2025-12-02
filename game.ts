@@ -2,12 +2,16 @@
  * Main game logic 
  * 
  * to do: 
- * (1) import city map model
+ * (1) import city map model (2/3)
  * (2) import 3d car model (2/3)
  * (3) implement cannon-es vehicle physics for the car (2/3)
- * (4) implement static physics for the world environment and buildings
- * (5) add music and sfx
- * (6) simplify vehicle collision into single class object with exported vehicle variables 
+ * (4) implement static physics for the world environment and buildings (1/3)
+ * (5) add music and sfx (1/2)
+ * (6) simplify vehicle collision into single class object with exported vehicle variables (1/2)
+ * 
+ * bugs:
+ * (1) game 3d models load very slow in browser
+ * (2) load time is longer than ususal
  *
  */
 
