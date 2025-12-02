@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/howler": "^2.2.12",
     "@types/three": "^0.181.0",
     "typescript": "~5.9.3",
     "vite": "npm:rolldown-vite@7.2.5"
@@ -19,6 +20,7 @@
   "dependencies": {
     "cannon-es": "^0.20.0",
     "cannon-es-debugger": "^1.0.0",
+    "howler": "^2.2.4",
     "three": "^0.181.2"
   }
 }
