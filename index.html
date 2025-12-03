@@ -3,7 +3,7 @@
 <head>
     <!-- cars vs angels web game -->
 
-    <script src=game.ts?1105 type=module></script>
+    <script src="./game.ts" type=module></script>
 
 
     <title>Cars vs Angels Web Game</title>
@@ -13,7 +13,7 @@
     <link rel=icon type=image/png href=./favicon.png>
     
     <!-- Every UI element styling-->
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="./styles.css">
 
     <!-- SEO optimisation for google and older search engines-->
     <!-- Open Graph (Facebook, LinkedIn) -->
@@ -31,15 +31,17 @@
         content="Play Cars vs Angels, Race in the streets. Defy the heavens!">
     <meta name="twitter:image" content="./google_play_thumbnail_512x384px.jpg">
 
- 
 </head>
 
 <body>
 
 
   <!-- all 3d model files-->
-  <link href="./Dodge_Charger.glb" as="fetch" type="model/gltf-binary">
-  <link href="./citymap.glb" as="fetch" type="model/gltf-binary">
+ <!-- Preload 3D models -->
+<link rel="preload" href="./Dodge_Charger.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous">
+<link rel="preload" href="./citymap.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous">
+  <audio id="bgMusic" src="./beaach_sex_chike_san.ogg" preload="auto" crossorigin="anonymous"></audio>
+ <link rel="preload" href="./autumn_field_puresky_1k.hdr" as="fetch" crossorigin="anonymous">
 
   <!-- Statically preload all image files-->
 
@@ -61,32 +63,6 @@
 
 </body>
 
-<!-- Game Monetize ads SDK + Ads testing -->
-<script src="https://html5.api.gamemonetize.com/sdk.js"></script>
-<script type="text/javascript">
-   window.SDK_OPTIONS = {
-      gameId: "01bsf4imoujpniyvppnz89kgh6tyl6nb",
-      onEvent: function (a) {
-         switch (a.name) {
-            case "SDK_GAME_PAUSE":
-               // pause game logic / mute audio
-               break;
-            case "SDK_GAME_START":
-               // advertisement done, resume game logic and unmute audio
-               break;
-            case "SDK_READY":
-               // when sdk is ready
-               //console.log("game is ready");
-               //console.log("Banners Ads Testing>>>>>>");
-               //sdk.showBanner();
-               break;
-         }
-      }
-   };
-(function (a, b, c) {
-   var d = a.getElementsByTagName(b)[0];
-   a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://api.gamemonetize.com/sdk.js", d.parentNode.insertBefore(a, d))
-})(document, "script", "gamemonetize-sdk"); 
-</script>
+
 
 </html>

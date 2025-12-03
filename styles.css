@@ -23,9 +23,20 @@ body {
   font-family: 'PricedownBl';
   font-size: 38px;
   color: #e9c225; /* optional color */
-  -webkit-text-stroke: 2px #000; /* stroke width and color */
- 
+    /* Fake outer stroke using multiple shadows */
+  text-shadow:
+    -3px -3px 0 #000,
+     3px -3px 0 #000,
+    -3px  3px 0 #000,
+     3px  3px 0 #000,
+    -3px  0px 0 #000,
+     3px  0px 0 #000,
+     0px -3px 0 #000,
+     0px  3px 0 #000;
 }
+
+ 
+
 
 #cash {
   position: fixed;
@@ -34,7 +45,15 @@ body {
   font-family: 'PricedownBl', sans-serif;
   font-size: 38px;
   color: #ffffff; /* optional color */
-  -webkit-text-stroke: 2px #000; /* stroke width and color */
+  text-shadow:
+    -3px -3px 0 #000,
+     3px -3px 0 #000,
+    -3px  3px 0 #000,
+     3px  3px 0 #000,
+    -3px  0px 0 #000,
+     3px  0px 0 #000,
+     0px -3px 0 #000,
+     0px  3px 0 #000;
 }
 
 #health {
@@ -44,5 +63,13 @@ body {
   font-family: 'PricedownBl', sans-serif;
   font-size: 38px;
   color: #c70303; /* optional color */
-  -webkit-text-stroke: 2px #000; /* stroke width and color */
+    text-shadow:
+    -3px -3px 0 #000,
+     3px -3px 0 #000,
+    -3px  3px 0 #000,
+     3px  3px 0 #000,
+    -3px  0px 0 #000,
+     3px  0px 0 #000,
+     0px -3px 0 #000,
+     0px  3px 0 #000;
 }

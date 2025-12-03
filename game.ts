@@ -62,7 +62,7 @@ updateClock();
 // -----------------------------------------------------
 // Example: Play background music
 const music = new Howl({
-  src: ['./beaach sex chike san.ogg'],
+  src: ['./beaach_sex_chike_san.ogg'],
   loop: true,
   volume: 0.5,
 });
@@ -94,6 +94,39 @@ music.play();
                 music.play()
             }
         });
+
+
+
+// ADS- Temporarily depreciated for code auditing
+/** 
+  <!-- Game Monetize ads SDK + Ads testing -->
+<script src="https://html5.api.gamemonetize.com/sdk.js"></script>
+<script type="text/javascript">
+   window.SDK_OPTIONS = {
+      gameId: "01bsf4imoujpniyvppnz89kgh6tyl6nb",
+      onEvent: function (a) {
+         switch (a.name) {
+            case "SDK_GAME_PAUSE":
+               // pause game logic / mute audio
+               break;
+            case "SDK_GAME_START":
+               // advertisement done, resume game logic and unmute audio
+               break;
+            case "SDK_READY":
+               // when sdk is ready
+               //console.log("game is ready");
+               //console.log("Banners Ads Testing>>>>>>");
+               //sdk.showBanner();
+               break;
+         }
+      }
+   };
+(function (a, b, c) {
+   var d = a.getElementsByTagName(b)[0];
+   a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://api.gamemonetize.com/sdk.js", d.parentNode.insertBefore(a, d))
+})(document, "script", "gamemonetize-sdk"); 
+</script>         
+*/
 
 
 // ------------------------------------------------------
@@ -128,7 +161,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
 
 const HDRloader = new HDRLoader();
-const envMap = await HDRloader.loadAsync("/autumn_field_puresky_1k.hdr");
+const envMap = await HDRloader.loadAsync("autumn_field_puresky_1k.hdr");
 envMap.mapping = THREE.EquirectangularReflectionMapping;
 scene.environment = envMap; // reflections
 scene.background = envMap; //skybox 
@@ -155,33 +188,6 @@ world.defaultContactMaterial.friction = 0
 const cannonDebugger = CannonDebugger(scene, world);
 
 
-// ------------------------------------------------------
-// Floor
-//------------------------------------------------------
-
-//const floorGeometry = new THREE.PlaneGeometry(1000, 1000);
-
-//const floorGeometry = new THREE.PlaneGeometry(5000, 5000); // huge floor
-//const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, side: THREE.DoubleSide });
-//const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
-
-//floorMesh.rotation.x = -Math.PI / 2; // horizontal
-//floorMesh.receiveShadow = true;
-//scene.add(floorMesh);
-
-
-// Create a static ground plane collision
-//const groundShape = new CANNON.Plane();
-//const groundBody = new CANNON.Body({
-//    mass: 0, // mass 0 = static object
-//    shape: groundShape,
-//    position: new CANNON.Vec3(0, 0, 0), // y=0
-//});
-
-// Rotate the plane to be horizontal
-//groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-
-//world.addBody(groundBody)
 
 
 // ------------------------------------------------------
@@ -811,3 +817,4 @@ function animate() {
 }
 
 animate();
+
