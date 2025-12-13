@@ -709,7 +709,7 @@ function input(){
         }
 });
 document.addEventListener('pointerup', () => {
-    console.log("Released!");
+    //console.log("Released!");
     // stop accelerating
 
      if (GRAVITY == -10) {
