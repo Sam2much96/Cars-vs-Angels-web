@@ -2,24 +2,31 @@
  * Main game logic 
  * 
  * to do: 
- * (1) import city map model (2/3)
- * (2) import 3d car model (2/3)
- * (3) implement cannon-es vehicle physics for the car (2/3)
+ * (1) 
+ * (2) 
+ * (3) implement cannon-es vehicle physics for the car (done)
  * (4) implement static physics for the world environment and buildings (1/3)
  * (5) add music and sfx (1/2)
  * (6) simplify vehicle collision into single class object with exported vehicle variables (1/2)
+ * (7) add money models + collisions
+ * (8) add npc sprites with navigation ai
+ * (9) add angel model enemy object
+ * (10) add car playing mechanics
+ * (11) organise code blocs into various classes and scripts for easier programming  
  * 
  * bugs:
- * (1) game 3d models load very slow in browser
- * (2) load time is longer than ususal
+ * (1) fix camera follow logic
+ * (2) fix vehicle collisions
+ * 
  *
  */
 
+// for 3d mesh and texture rendering
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'; // to do ; (1) update tsConfig to use javascript files
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
-//import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 
+// for 3d physics and collisions
 import * as CANNON from "cannon-es";
 import CannonDebugger from 'cannon-es-debugger';
 
@@ -84,22 +91,21 @@ music.play();
         // this turns the music off if the browser tab
         // is no longer visible
         // works
-        document.addEventListener("visibilitychange", async () => {
-            if (document.hidden){
-                if (music.playing()){
-                    music.pause()
-                }
+document.addEventListener("visibilitychange", async () => {
+    if (document.hidden){
+        if (music.playing()){
+            music.pause()
             }
-            else{
-                music.play()
+        }
+        else{
+            music.play()
             }
         });
 
-
-
-// ADS- Temporarily depreciated for code auditing
-/** 
-  <!-- Game Monetize ads SDK + Ads testing -->
+//Ads
+/**
+ * 
+ *   <!-- Game Monetize ads SDK + Ads testing -->
 <script src="https://html5.api.gamemonetize.com/sdk.js"></script>
 <script type="text/javascript">
    window.SDK_OPTIONS = {
@@ -116,7 +122,7 @@ music.play();
                // when sdk is ready
                //console.log("game is ready");
                //console.log("Banners Ads Testing>>>>>>");
-               //sdk.showBanner();
+               sdk.showBanner();
                break;
          }
       }
@@ -126,7 +132,8 @@ music.play();
    a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://api.gamemonetize.com/sdk.js", d.parentNode.insertBefore(a, d))
 })(document, "script", "gamemonetize-sdk"); 
 </script>         
-*/
+
+ */
 
 
 // ------------------------------------------------------
@@ -134,18 +141,21 @@ music.play();
 // ------------------------------------------------------
 
 const scene = new THREE.Scene();
-//scene.background = new THREE.Color(0x222222);
 
  
 // Set the camera offset from the car
 const cameraOffset = new THREE.Vector3(0, 5, -10); // x=side, y=height, z=behind
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 5, 10);
+camera.position.set(0, 5, 6);
 
 const renderer = new THREE.WebGLRenderer({ 
     antialias: true,
     logarithmicDepthBuffer: true 
 });
+
+//set up the renderer
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -167,6 +177,16 @@ scene.environment = envMap; // reflections
 scene.background = envMap; //skybox 
 
 console.log("HDR environment loaded (HDRLoader)!");
+
+
+// ------------------------------------------------------ 
+// Lights
+// ------------------------------------------------------
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+dirLight.position.set(5, 10, 5);
+scene.add(dirLight);
 
 
 
@@ -264,6 +284,7 @@ loader.load('./citymap.glb', (gltf) => {
  * 
  * bugs:
  * (1) collision shape does not fit car model properly
+ * (2) tire rotation from collision vehicle is not transferred
  */
 
 
@@ -278,7 +299,8 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
     carMesh.traverse((child) => {
         if (child instanceof THREE.Mesh) {
             console.log("Mesh found:", child.name);
-        }
+            console.log(child.material.map); // should NOT be null
+        } 
     });
 
 
@@ -288,6 +310,9 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
     carMesh.position.set(0, 2, 0);
     scene.add(carMesh);
 
+
+
+
     // --------------------------------------------------
     // CREATE PHYSICS BODY FOR CAR (RAYCAST VEHICLE)
     // --------------------------------------------------
@@ -296,13 +321,13 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
     const chassisShape = new CANNON.Box(new CANNON.Vec3(3.9, 0.3, 1.6)); // half-extents
     const chassisBody = new CANNON.Body({ 
         mass: 1500, 
-        position: new CANNON.Vec3(0, 15, 0), // set car collision above the citymap terrain
+        position: new CANNON.Vec3(0, 2, 0), // set car collision above the citymap terrain
         angularVelocity: new CANNON.Vec3(0,0.5,0),
         angularDamping: 0.5,
         linearDamping: 0.01
     });
 
-    chassisBody.quaternion.setFromEuler(0, Math.PI / 2, 0);
+   // chassisBody.quaternion.setFromEuler(0, Math.PI / 2, 0);
 
 
     chassisBody.addShape(chassisShape);
@@ -362,15 +387,18 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
           })
           wheelBody.type = CANNON.Body.KINEMATIC
           wheelBody.collisionFilterGroup = 0 // turn off collisions
-          const quaternion = new CANNON.Quaternion().setFromEuler(-Math.PI / 2, 0, 0)
+
+          // set wheel collision rotation
+          const quaternion = new CANNON.Quaternion().setFromEuler(Math.PI / 2, 0, 0) // -Math.PI / 2, 0, 0)
          
           wheelBody.addShape(cylinderShape, new CANNON.Vec3(), quaternion)
+
           wheelBodies.push(wheelBody)
           //demo.addVisual(wheelBody)
           world.addBody(wheelBody)
         })
 
-         // Update the wheel bodies
+         // Update the wheel collision bodies
         world.addEventListener('postStep', () => {
           for (let i = 0; i < vehicle.wheelInfos.length; i++) {
             vehicle.updateWheelTransform(i)
@@ -382,50 +410,7 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
         })
 
 
-         // Add the ground
-         // depreciated for citymap terrain
-        //const sizeX = 64
-        //const sizeZ = 64
-        //const matrix : any[] = []
-        //for (let i = 0; i < sizeX; i++) {
-        //  matrix.push([])
-        //  for (let j = 0; j < sizeZ; j++) {
-        //    if (i === 0 || i === sizeX - 1 || j === 0 || j === sizeZ - 1) {
-        //      const height = 3
-        //      matrix[i].push(height)
-        //      continue
-        //    }
-
-        //    const height = Math.cos((i / sizeX) * Math.PI * 5) * Math.cos((j / sizeZ) * Math.PI * 5) * 2 + 2
-        //    matrix[i].push(height)
-        //  }
-        //}
-
-        //const groundMaterial = new CANNON.Material('ground')
-        //const heightfieldShape = new CANNON.Heightfield(matrix, {
-        //  elementSize: 100 / sizeX,
-        //})
-        //const heightfieldBody = new CANNON.Body({ mass: 0, material: groundMaterial })
-        //heightfieldBody.addShape(heightfieldShape)
-        //heightfieldBody.position.set(
-          // -((sizeX - 1) * heightfieldShape.elementSize) / 2,
-         // -(sizeX * heightfieldShape.elementSize) / 2,
-         // -1,
-          // ((sizeZ - 1) * heightfieldShape.elementSize) / 2
-         // (sizeZ * heightfieldShape.elementSize) / 2
-        //)
-        //heightfieldBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0)
-        //world.addBody(heightfieldBody)
-        //demo.addVisual(heightfieldBody)
-
-        // Define interactions between wheels and ground
-        //const wheel_ground = new CANNON.ContactMaterial(wheelMaterial, groundMaterial, {
-        //  friction: 0.3,
-        //  restitution: 0,
-        //  contactEquationStiffness: 1000,
-        //})
-        //world.addContactMaterial(wheel_ground)
-
+         
 
 
     // 5. IMPORTANT: Use the same chassisBody for both vehicle and graphics
@@ -460,65 +445,6 @@ window.addEventListener('keyup', (e) => keys[e.code] = false);
 // GAME LOOP
 // ------------------------------------------------------
 
-function updatePhysicsv1() {
-    if (!window.vehicle) return;
-
-    const engineForce = 80000;
-    const brakeForce = 50;
-    //const steerAngle = 0.5;
-    const maxSteer = 0.5;
-
-    // Reset forces each frame
-    //for (let i = 0; i < 4; i++) {
-    //    window.vehicle.setSteeringValue(0, i);
-    //    window.vehicle.setBrake(0, i);
-    //    window.vehicle.applyEngineForce(0, i);
-    
-    //}
-
-        // ACCELERATION (rear-wheel drive)
-    if (keys["KeyW"]) {
-        //console.log("Accelerating: ");
-        window.vehicle.applyEngineForce(-engineForce, 0); // forward left
-        window.vehicle.applyEngineForce(-engineForce, 1); // forward right
-    }
-
-    // REVERSE
-    if (keys["KeyS"]) {
-        console.log("Reversing");
-        window.vehicle.applyEngineForce(engineForce / 2, 2);
-        window.vehicle.applyEngineForce(engineForce / 2, 3);
-    }
-
-     // BRAKE
-    if (keys["Space"]) {
-        console.log("Braking");
-        for (let i = 0; i < 4; i++) {
-            window.vehicle.setBrake(brakeForce, i);
-        }
-    }
-
-     // STEERING (front wheels only)
-    let steering = 0;
-    if (keys["KeyA"]) {
-        steering = maxSteer;
-    } else if (keys["KeyD"]) {
-        steering = -maxSteer;
-    }
-    
-    if (steering !== 0) {
-        console.log("Steering:", steering);
-        window.vehicle.setSteeringValue(steering, 0); // Front left
-        window.vehicle.setSteeringValue(steering, 1); // Front right
-    }
-
-    world.step(1/60);
-
-     // Important: Update the vehicle after physics step
-    if (window.vehicle) {
-        window.vehicle.updateVehicle(world.dt);
-    }
-}
 function updatephysicsv3(){
     // simultate world and car physics
 
@@ -532,47 +458,85 @@ function updatephysicsv3(){
 function input(){
     // capture input
     if (!window.vehicle) return;
+    if (!carBody) return;
 
+    const GRAVITY = world.gravity.y;
+    //console.log("Gravity debug: ", GRAVITY);
     
     // Keybindings
         // Add force on keydown
         document.addEventListener('keydown', (event) => {
+          
+            //driving controls
           const maxSteerVal = 0.5
           const maxForce = 1000
           const brakeForce = 1000000
-          //carSfx.play(); // play sfx
+
+          // flying controls
+            const thrust = 100; // forward/back
+            const lift = 5000;    // up/down
+            const turn = 0.005;   // yaw
+
 
           switch (event.key) {
             case 'w':
             case 'ArrowUp':
-              window.vehicle.applyEngineForce(-maxForce, 2)
-               window.vehicle.applyEngineForce(-maxForce, 3)
-               
+                if (GRAVITY == -10){
+                window.vehicle.applyEngineForce(-maxForce, 2)
+                window.vehicle.applyEngineForce(-maxForce, 3)
+                 }
+                else if (GRAVITY == 0){
+                    // fly forward
+                    carBody?.applyLocalForce(new CANNON.Vec3(-thrust, 0, 0), new CANNON.Vec3(0, 0, 0));
+                }
+
               break
 
             case 's':
             case 'ArrowDown':
-               window.vehicle.applyEngineForce(maxForce, 2)
-               window.vehicle.applyEngineForce(maxForce, 3)
+                if (GRAVITY == -10){
+                window.vehicle.applyEngineForce(maxForce, 2)
+                window.vehicle.applyEngineForce(maxForce, 3)
+                }
+                else if (GRAVITY == 0){
+                    carBody?.applyLocalForce(new CANNON.Vec3(thrust, 0, 0), new CANNON.Vec3(0, 0, 0));
+                }
               break
 
             case 'a':
             case 'ArrowLeft':
+                if (GRAVITY == -10){
                window.vehicle.setSteeringValue(maxSteerVal, 0)
                window.vehicle.setSteeringValue(maxSteerVal, 1)
+               }
+               else if (GRAVITY == 0){
+                carBody!.angularVelocity.y += turn;
+               }
               break
 
             case 'd':
             case 'ArrowRight':
+                if (GRAVITY == -10){
                window.vehicle.setSteeringValue(-maxSteerVal, 0)
                window.vehicle.setSteeringValue(-maxSteerVal, 1)
+                }
+                else if (GRAVITY == 0){
+                    carBody!.angularVelocity.y -= turn;
+                }
               break
 
-            case 'b':
+            case 'space':
                window.vehicle.setBrake(brakeForce, 0)
                window.vehicle.setBrake(brakeForce, 1)
                window.vehicle.setBrake(brakeForce, 2)
                window.vehicle.setBrake(brakeForce, 3)
+              break
+            case "p":
+              //console.log("setting gravity");
+              world.gravity.set(0, 0, 0);
+              //applyFlightControls(true);
+              // apply lift to car 
+              carBody?.applyLocalForce(new CANNON.Vec3(0, lift, 0), new CANNON.Vec3(0, 0, 0));
               break
           }
         })
@@ -583,27 +547,41 @@ function input(){
           switch (event.key) {
             case 'w':
             case 'ArrowUp':
-              window.vehicle.applyEngineForce(0, 2)
-              window.vehicle.applyEngineForce(0, 3)
-              
+                // ground
+                if (GRAVITY == -10) {
+                window.vehicle.applyEngineForce(0, 2)
+                window.vehicle.applyEngineForce(0, 3)
+                }
+
+                // air
+                //else if (!GRAVITY) {
+                    //carBody?.applyLocalForce(new CANNON.Vec3(0, 0, -thrust), new CANNON.Vec3(0, 0, 0));
+                //}
+
               break
 
             case 's':
             case 'ArrowDown':
+                if (GRAVITY == -10){
               window.vehicle.applyEngineForce(0, 2)
               window.vehicle.applyEngineForce(0, 3)
+                }
               break
 
             case 'a':
             case 'ArrowLeft':
+              if (GRAVITY == -10) { 
               window.vehicle.setSteeringValue(0, 0)
               window.vehicle.setSteeringValue(0, 1)
+              }
               break
 
             case 'd':
             case 'ArrowRight':
-              window.vehicle.setSteeringValue(0, 0)
+              if (GRAVITY == -10){
+                window.vehicle.setSteeringValue(0, 0)
               window.vehicle.setSteeringValue(0, 1)
+              }
               break
 
             case 'b':
@@ -612,10 +590,30 @@ function input(){
               window.vehicle.setBrake(0, 2)
               window.vehicle.setBrake(0, 3)
               break
+            case "o":
+                // reset gravity
+                //console.log("reseting world gravity");
+                world.gravity.set(0, -10, 0);
+                
+                break
           }
         })
 }
 
+
+//function applyFlightControls(set: boolean) {
+ //   if (!carBody) return;
+ //   if (false) return;
+
+
+
+    //if (keys["KeyW"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, -thrust), new CANNON.Vec3(0, 0, 0));
+    //if (keys["KeyS"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, thrust), new CANNON.Vec3(0, 0, 0));
+    //if (keys["KeyA"]) carBody.angularVelocity.y += turn;
+    //if (keys["KeyD"]) carBody.angularVelocity.y -= turn;
+    //if (keys["Space"]) carBody.applyLocalForce(new CANNON.Vec3(0, lift, 0), new CANNON.Vec3(0, 0, 0));
+    //if (keys["ShiftLeft"]) carBody.applyLocalForce(new CANNON.Vec3(0, -lift, 0), new CANNON.Vec3(0, 0, 0));
+//}
 
 function updateCamera() {
 
@@ -638,54 +636,72 @@ function updateCamera() {
 const meshRotationOffset = new THREE.Quaternion();
 meshRotationOffset.setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0)); // rotate 90° around Y
 
-const carOffset = new THREE.Vector3(0, -0.5, 0);
+const carOffset = new THREE.Vector3(0, -0.7, 0);
+
+
+
 function syncGraphics() {
+    /**
+     * bugs:
+     * 
+     * (1) buggy wheel rotation
+     */
+    if (!carMesh || !carBody || !window.vehicle) return;
 
-    // to do:
-    // (1) set vehicle tire mesh position and rotation to raycast vehicle settings
+    // 1️⃣ Sync chassis
+    carMesh.position.copy(carBody.position).add(carOffset);
+    carMesh.quaternion.copy(carBody.quaternion).multiply(meshRotationOffset);
 
-    // temporarily disabling for physics debugging
-    if (!carMesh || !carBody) return;
-        // Sync car mesh with chassis body (which is part of the raycast vehicle)
+    // 2️⃣ Get wheel meshes in correct order: FL, FR, BL, BR
+    const wheelMeshes = [
+        carMesh.getObjectByName("Círculo004"), // FL
+        carMesh.getObjectByName("Círculo005"), // FR
+        carMesh.getObjectByName("Círculo006"), // BL
+        carMesh.getObjectByName("Círculo007"), // BR
+    ];
 
-        
-        carMesh.position.copy(carBody.position).add(carOffset);
-        carMesh.quaternion.copy(carBody.quaternion);
-        carMesh.quaternion.multiply(meshRotationOffset);
-        
-        // get all the tires
-        // bug:
-        // (1) tire rotation is buggy
-        // (2) hard fix collision positioning to fix rotation bug, which is caused by threejs and cannon es using different z values for positioning
-    // Get the car parts
-    //const FL = carMesh.getObjectByName("Círculo000");
-    //const FR = carMesh.getObjectByName("Círculo001");
-    //const BR = carMesh.getObjectByName("Círculo003");
-    //const BL = carMesh.getObjectByName("Círculo011");
-    //const BODY = carMesh.getObjectByName("Carroceria001");
+    // 3️⃣ Per-wheel axis correction quaternions
+    // Adjust X/Y/Z based on Blender export
+    const leftWheelCorrection = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
+    );
+    const rightWheelCorrection = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(-Math.PI / 2, Math.PI, 0) // mirror for right side
+    );
 
-    //const wheelMeshes = [FL, FR, BL, BR];
+    // 4️⃣ Sync each wheel
+    window.vehicle.wheelInfos.forEach((wheel, i) => {
+        const mesh = wheelMeshes[i];
+        if (!mesh) return;
 
-    //const wheelRotationOffset = new THREE.Quaternion();
-
-    //wheelRotationOffset.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0))
-          // 2️⃣ Sync wheels
-    //window.vehicle.wheelInfos.forEach((wheel, index) => {
-    //    const wheelMesh= wheelMeshes[index];
-    //    if (!wheelMesh) return;
+        // Update wheel physics transform
+        window.vehicle.updateWheelTransform(i);
+        const wt = wheel.worldTransform;
 
         // Copy position
-        //wheelMesh.position.copy(wheel.worldTransform.position);
+        //mesh.position.copy(wt.position);
 
-        
-        // Copy rotation
-    //    wheelMesh.quaternion.copy(wheel.worldTransform.quaternion);
-   //     wheelMesh.quaternion.multiply(wheelRotationOffset);
-        
-   // });
-        
-    
+        // Copy rotation safely
+        const q = new THREE.Quaternion(
+            wt.quaternion.x,
+            wt.quaternion.y,
+            wt.quaternion.z,
+            wt.quaternion.w
+        );
+
+        // Apply per-wheel correction
+        if (i === 0 || i === 2) {
+            // FL / BL
+            q.multiply(leftWheelCorrection);
+        } else {
+            // FR / BR
+            q.multiply(rightWheelCorrection);
+        }
+
+        mesh.quaternion.copy(q);
+    });
 }
+
  /**
 * Create a Cannon-es static body from a Three.js mesh
 * @param mesh - Three.js mesh to convert to collision body
@@ -801,13 +817,13 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
 
 
 
-const DEBUG = false;
+const DEBUG = true;
 
 function animate() {
     requestAnimationFrame(animate);
     input();
     updatephysicsv3();
-    syncGraphics();
+    syncGraphics(); //temporarily disabled for debugging
     updateCamera();
     if (DEBUG){
         cannonDebugger.update();

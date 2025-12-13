@@ -6,6 +6,7 @@
 - Threejs
 - cannon-es
 - mapbox
+- vite
 
 ## Game Assets
 
@@ -14,3 +15,7 @@
 - Background HDR
 - Player mesh
 - NPC meshes
+
+## TO DO
+- github
+- vite
