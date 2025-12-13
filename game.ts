@@ -33,6 +33,8 @@ import CannonDebugger from 'cannon-es-debugger';
 // Import Howl class for music and sfx
 import { Howl } from 'howler';
 
+// mobile input
+import Hammer from 'hammerjs';
 
 // ------------------------------------------------------
 // GLOBALS
@@ -77,6 +79,31 @@ const music = new Howl({
 
 music.play();
 
+
+
+//
+//
+//
+//driving controls
+const maxSteerVal = 0.5
+const maxForce = 2000
+const brakeForce = 1000000
+
+// flying controls
+const thrust = 100; // forward/back
+const lift = 5000;    // up/down
+const turn = 0.005;   // yaw
+
+
+
+//
+// Mobile touchscreen
+//
+// Attach Hammer to the document body or a specific container
+const hammer = new Hammer(document.body);
+
+// Enable swipe detection in all directions
+hammer.get('swipe').set({ direction: Hammer.DIRECTION_ALL });
 
 
 
@@ -243,7 +270,7 @@ loader.load('./citymap.glb', (gltf) => {
              //Add static world physics to the map terrain
             if (obj.name === "Terrain001"){
                 // create terrain static body
-                createStaticBodyFromMesh(obj);
+                createFloorStaticBodyFromMesh(obj);
 
                  // Set brown terrain material
                 obj.material = new THREE.MeshStandardMaterial({
@@ -320,7 +347,7 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
     // 1. Create chassis body
     const chassisShape = new CANNON.Box(new CANNON.Vec3(3.9, 0.3, 1.6)); // half-extents
     const chassisBody = new CANNON.Body({ 
-        mass: 1500, 
+        mass: 2500, 
         position: new CANNON.Vec3(0, 2, 0), // set car collision above the citymap terrain
         angularVelocity: new CANNON.Vec3(0,0.5,0),
         angularDamping: 0.5,
@@ -456,6 +483,14 @@ function updatephysicsv3(){
 }
 
 function input(){
+    /**
+     * All game inputs
+     * 
+     * Features:
+     * (1) key up and down keyboard presses
+     * (2) mobile touch and gyroscope presses
+     * 
+     */
     // capture input
     if (!window.vehicle) return;
     if (!carBody) return;
@@ -466,18 +501,6 @@ function input(){
     // Keybindings
         // Add force on keydown
         document.addEventListener('keydown', (event) => {
-          
-            //driving controls
-          const maxSteerVal = 0.5
-          const maxForce = 1000
-          const brakeForce = 1000000
-
-          // flying controls
-            const thrust = 100; // forward/back
-            const lift = 5000;    // up/down
-            const turn = 0.005;   // yaw
-
-
           switch (event.key) {
             case 'w':
             case 'ArrowUp':
@@ -554,9 +577,9 @@ function input(){
                 }
 
                 // air
-                //else if (!GRAVITY) {
-                    //carBody?.applyLocalForce(new CANNON.Vec3(0, 0, -thrust), new CANNON.Vec3(0, 0, 0));
-                //}
+                else if (GRAVITY == 0) {
+                    carBody?.applyLocalForce(new CANNON.Vec3(0, 0, 0), new CANNON.Vec3(0, 0, 0));
+                }
 
               break
 
@@ -598,6 +621,107 @@ function input(){
                 break
           }
         })
+
+
+        
+
+        // mobile steering
+        window.addEventListener('deviceorientation', (event) => {
+            const gamma = event.gamma; // left-right tilt
+            const beta = event.beta;   // front-back tilt
+
+            // Map gamma (-90..90) to steering
+            const maxSteer = 0.5;
+            const steer = THREE.MathUtils.clamp(gamma! / 45, -1, 1) * maxSteer;
+            window.vehicle.setSteeringValue(steer, 0);
+            window.vehicle.setSteeringValue(steer, 1);
+
+            // Map beta to acceleration/brake
+            const engineForce = 80000;
+            const throttle = THREE.MathUtils.clamp(beta! / 45, -1, 1);
+            window.vehicle.applyEngineForce(-throttle * engineForce, 2);
+            window.vehicle.applyEngineForce(-throttle * engineForce, 3);
+        });
+
+        //swipe events
+        hammer.on('swipe', (ev) => {
+            console.log("Swipe detected!", ev.direction);
+
+            if (!window.vehicle) return;
+
+            const maxSteer = 0.5; 
+            const engineForce = 80000;
+
+            switch(ev.direction) {
+                case Hammer.DIRECTION_LEFT:
+                    console.log("Swipe left → steer left");
+                    window.vehicle.setSteeringValue(maxSteer, 0); // front-left
+                    window.vehicle.setSteeringValue(maxSteer, 1); // front-right
+                    break;
+                case Hammer.DIRECTION_RIGHT:
+                    console.log("Swipe right → steer right");
+                    window.vehicle.setSteeringValue(-maxSteer, 0);
+                    window.vehicle.setSteeringValue(-maxSteer, 1);
+                    break;
+                case Hammer.DIRECTION_UP:
+                    console.log("Swipe up → accelerate");
+                    window.vehicle.applyEngineForce(-engineForce, 2);
+                    window.vehicle.applyEngineForce(-engineForce, 3);
+                    break;
+                case Hammer.DIRECTION_DOWN:
+                    console.log("Swipe down → brake");
+                    window.vehicle.setBrake(5000, 0);
+                    window.vehicle.setBrake(5000, 1);
+                    window.vehicle.setBrake(5000, 2);
+                    window.vehicle.setBrake(5000, 3);
+                    break;
+            }
+        });
+
+        //reset on swipe end
+        hammer.on('swipeend', (ev) => {
+            if (!window.vehicle) return;
+            // Reset steering and engine force
+            window.vehicle.setSteeringValue(0, 0);
+            window.vehicle.setSteeringValue(0, 1);
+            window.vehicle.applyEngineForce(0, 2);
+            window.vehicle.applyEngineForce(0, 3);
+            window.vehicle.setBrake(0, 0);
+            window.vehicle.setBrake(0, 1);
+            window.vehicle.setBrake(0, 2);
+            window.vehicle.setBrake(0, 3);
+        });
+
+
+
+    // mouse and mobile pointer
+    document.addEventListener('pointerdown', () => {
+    
+    // accelerate
+
+     if (GRAVITY == -10){
+                window.vehicle.applyEngineForce(-maxForce, 2)
+                window.vehicle.applyEngineForce(-maxForce, 3)
+                 }
+                else if (GRAVITY == 0){
+                    // fly forward
+                    carBody?.applyLocalForce(new CANNON.Vec3(-thrust, 0, 0), new CANNON.Vec3(0, 0, 0));
+        }
+});
+document.addEventListener('pointerup', () => {
+    console.log("Released!");
+    // stop accelerating
+
+     if (GRAVITY == -10) {
+                window.vehicle.applyEngineForce(0, 2)
+                window.vehicle.applyEngineForce(0, 3)
+                }
+
+                // air
+                else if (GRAVITY == 0) {
+                    carBody?.applyLocalForce(new CANNON.Vec3(0, 0, 0), new CANNON.Vec3(0, 0, 0));
+                }
+});
 }
 
 
@@ -614,6 +738,8 @@ function input(){
     //if (keys["Space"]) carBody.applyLocalForce(new CANNON.Vec3(0, lift, 0), new CANNON.Vec3(0, 0, 0));
     //if (keys["ShiftLeft"]) carBody.applyLocalForce(new CANNON.Vec3(0, -lift, 0), new CANNON.Vec3(0, 0, 0));
 //}
+
+
 
 function updateCamera() {
 
@@ -816,8 +942,68 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
     }
 
 
+ function createFloorStaticBodyFromMesh(mesh: THREE.Mesh): void {
+    const FLOOR_THICKNESS = 5; // 🔥 collision thickness (world units)
 
-const DEBUG = true;
+    if (!mesh.geometry || !mesh.geometry.attributes.position) {
+        console.warn('Mesh has no geometry, skipping collider');
+        return;
+    }
+
+    // Ensure bounding box exists
+    mesh.geometry.computeBoundingBox();
+    const bbox = mesh.geometry.boundingBox;
+    if (!bbox) return;
+
+    // Decompose world transform
+    const worldPosition = new THREE.Vector3();
+    const worldQuaternion = new THREE.Quaternion();
+    const worldScale = new THREE.Vector3();
+
+    mesh.updateWorldMatrix(true, false);
+    mesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+
+    // Get scaled size of the mesh
+    const size = new THREE.Vector3();
+    bbox.getSize(size);
+    size.multiply(worldScale);
+
+    // 🔥 Create thick box collider
+    const halfExtents = new CANNON.Vec3(
+        size.x / 2,
+        FLOOR_THICKNESS / 2,
+        size.z / 2
+    );
+
+    const shape = new CANNON.Box(halfExtents);
+
+    // ⬇️ Lower collider so top matches mesh surface
+    const bodyPosition = new CANNON.Vec3(
+        worldPosition.x,
+        worldPosition.y - FLOOR_THICKNESS / 2,
+        worldPosition.z
+    );
+
+    const body = new CANNON.Body({
+        type: CANNON.Body.STATIC,
+        shape,
+        position: bodyPosition,
+        quaternion: new CANNON.Quaternion(
+            worldQuaternion.x,
+            worldQuaternion.y,
+            worldQuaternion.z,
+            worldQuaternion.w
+        )
+    });
+
+    world.addBody(body);
+
+    console.log(`✅ Thick floor collider created for: ${mesh.name || 'unnamed'}`);
+}
+   
+
+
+const DEBUG = false;
 
 function animate() {
     requestAnimationFrame(animate);
