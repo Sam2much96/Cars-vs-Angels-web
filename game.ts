@@ -13,6 +13,14 @@
  * (9) add angel model enemy object
  * (10) add car playing mechanics
  * (11) organise code blocs into various classes and scripts for easier programming  
+ * (12) implement texturing in world level
+ * (13) implement cash and mission system
+ * (14) organise source code into classes for easier readability
+ * (15) implement hdr and weather system
+ * (16) port material data into threejs and depreciate material image usage
+ * (17) replace howlerjs with zzfxm and zzfx
+ * (18) separate codebase into separate scripts
+ * (19) desccribe differnt game states & enumerations for each of the differnt hdr's
  * 
  * bugs:
  * (1) fix camera follow logic
@@ -30,11 +38,15 @@ import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import * as CANNON from "cannon-es";
 import CannonDebugger from 'cannon-es-debugger';
 
-// Import Howl class for music and sfx
-import { Howl } from 'howler';
+
 
 // mobile input
+// buggy: does not work and requires on screen debugging for better calibration
 import Hammer from 'hammerjs';
+
+
+// Music singleton
+import { Music } from './src/Music/Music';
 
 // ------------------------------------------------------
 // GLOBALS
@@ -42,7 +54,9 @@ import Hammer from 'hammerjs';
 
 declare global {
     interface Window {
-        vehicle: CANNON.RaycastVehicle,}
+        vehicle: CANNON.RaycastVehicle,
+        music : Music,
+    }
 }
 
 // ------------------------------------------------------
@@ -66,20 +80,11 @@ setInterval(updateClock, 1000);
 // Initialize immediately
 updateClock();
 
+
 // ------------------------------------------------------
-// MUSIC & SFX
-// -----------------------------------------------------
-// Example: Play background music
-const music = new Howl({
-  src: ['./beaach_sex_chike_san.ogg'],
-  loop: true,
-  volume: 0.5,
-});
-
-
-music.play();
-
-
+// Music & SFX
+// ------------------------------------------------------
+window.music = new Music();
 
 //
 //
@@ -107,60 +112,13 @@ hammer.get('swipe').set({ direction: Hammer.DIRECTION_ALL });
 
 
 
-// Play a sound effect
-// bugs sfx file
-//const carSfx = new Howl({
-//  src: ['./car-acceleration-inside-car.ogg'],
-//  volume: 0.5,
-//});
 
-// ---- ADD TAB VISIBILITY HANDLER ----
-        // this turns the music off if the browser tab
-        // is no longer visible
-        // works
-document.addEventListener("visibilitychange", async () => {
-    if (document.hidden){
-        if (music.playing()){
-            music.pause()
-            }
-        }
-        else{
-            music.play()
-            }
-        });
 
-//Ads
-/**
- * 
- *   <!-- Game Monetize ads SDK + Ads testing -->
-<script src="https://html5.api.gamemonetize.com/sdk.js"></script>
-<script type="text/javascript">
-   window.SDK_OPTIONS = {
-      gameId: "01bsf4imoujpniyvppnz89kgh6tyl6nb",
-      onEvent: function (a) {
-         switch (a.name) {
-            case "SDK_GAME_PAUSE":
-               // pause game logic / mute audio
-               break;
-            case "SDK_GAME_START":
-               // advertisement done, resume game logic and unmute audio
-               break;
-            case "SDK_READY":
-               // when sdk is ready
-               //console.log("game is ready");
-               //console.log("Banners Ads Testing>>>>>>");
-               sdk.showBanner();
-               break;
-         }
-      }
-   };
-(function (a, b, c) {
-   var d = a.getElementsByTagName(b)[0];
-   a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://api.gamemonetize.com/sdk.js", d.parentNode.insertBefore(a, d))
-})(document, "script", "gamemonetize-sdk"); 
-</script>         
 
- */
+// ------------------------------------------------------
+// Overall Level Debug
+// ------------------------------------------------------
+const DEBUG = true;
 
 
 // ------------------------------------------------------
@@ -171,7 +129,7 @@ const scene = new THREE.Scene();
 
  
 // Set the camera offset from the car
-const cameraOffset = new THREE.Vector3(0, 5, -10); // x=side, y=height, z=behind
+const cameraOffset = new THREE.Vector3(0, 2.5, -7); // x=side, y=height, z=behind
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 5, 6);
 
@@ -183,27 +141,50 @@ const renderer = new THREE.WebGLRenderer({
 //set up the renderer
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
+// set the shadow
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 
+// Handle window resize
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+
 
 
 // ------------------------------------------------------ 
-// HDR
+// Car offset config for the 3d mesh
+// ------------------------------------------------------
+const meshRotationOffset = new THREE.Quaternion();
+meshRotationOffset.setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0)); // rotate 90° around Y
+const carOffset = new THREE.Vector3(0, -0.7, 0);
+
+
+// ------------------------------------------------------ 
+// Weather & HDR
 // ------------------------------------------------------
 
 const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
 
 const HDRloader = new HDRLoader();
-const envMap = await HDRloader.loadAsync("autumn_field_puresky_1k.hdr");
+const envMap = await HDRloader.loadAsync("kloppenheim_07_puresky_1k.hdr");
 envMap.mapping = THREE.EquirectangularReflectionMapping;
 scene.environment = envMap; // reflections
 scene.background = envMap; //skybox 
 
+scene.fog = new THREE.Fog(0x87ceeb, 100, 1000); // Add fog for distance
+
 console.log("HDR environment loaded (HDRLoader)!");
+
+
 
 
 // ------------------------------------------------------ 
@@ -243,6 +224,17 @@ const cannonDebugger = CannonDebugger(scene, world);
 
 const loader = new GLTFLoader();
 
+const loadedBuildings = [];
+
+// Track loading progress
+let totalBuildings = 0;
+let loadedCount = 0;
+
+
+
+
+
+
 let carMesh: THREE.Object3D | null = null;
 let carBody: CANNON.Body | null = null;
 
@@ -252,10 +244,11 @@ let carBody: CANNON.Body | null = null;
 // ------------------------------------------------------
 
 // bug:
-// (1) city map level needs optimisation to fix occlusiion culling
-// (2) remove all materials from level object and fix positioning
+// (1) city map level needs optimisation to fix occlusiion culling (done)
+// (2) remove all materials from level object and fix positioning (done)
+// (3) roads keep floating in model export, (1/2)
 
-loader.load('./citymap.glb', (gltf) => {
+loader.load('./ground_mesh.glb', (gltf) => {
     const city = gltf.scene;
     city.traverse((obj) => {
         if (obj instanceof THREE.Mesh) {
@@ -281,37 +274,46 @@ loader.load('./citymap.glb', (gltf) => {
 
                 // Optional: keep textures if terrain already has UVs
                 obj.material.needsUpdate = true;
-                
-
             }
         }
     });
 
     scene.add(city);
 
-   
+}, undefined, (err) => {
+    console.error('CITY LOAD ERROR:', err);
+});
+
+
+
+
+loader.load('./buildings_mesh.glb', (gltf) => {
+    const buildings = gltf.scene;
+    buildings.traverse((obj) => {
+      
+    });
+
+    scene.add(buildings);
 
 }, undefined, (err) => {
     console.error('CITY LOAD ERROR:', err);
 });
 
-// ------------------------------------------------------
-// (2) LOAD DODGE CHARGER MODEL
-// ------------------------------------------------------
+
 
 /**
  * DODGE CHARGER MODEL
  * 
  * Features:
  * (1) player
- * (2)
+ * (2) load the dodge charger model
  * 
  * To Do:
  * (1) implement player controls
  * 
  * bugs:
  * (1) collision shape does not fit car model properly
- * (2) tire rotation from collision vehicle is not transferred
+ * (2) tire rotation from collision vehicle is not transferred (1/3)
  */
 
 
@@ -326,7 +328,7 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
     carMesh.traverse((child) => {
         if (child instanceof THREE.Mesh) {
             console.log("Mesh found:", child.name);
-            console.log(child.material.map); // should NOT be null
+            console.log("Material debug: ",child.material.map); // should NOT be null
         } 
     });
 
@@ -334,10 +336,8 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
     
     // Center and scale the model
     carMesh.scale.set(1, 1, 1);
-    carMesh.position.set(0, 2, 0);
+    carMesh.position.set(0, 5, 0);
     scene.add(carMesh);
-
-
 
 
     // --------------------------------------------------
@@ -354,7 +354,6 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
         linearDamping: 0.01
     });
 
-   // chassisBody.quaternion.setFromEuler(0, Math.PI / 2, 0);
 
 
     chassisBody.addShape(chassisShape);
@@ -447,7 +446,7 @@ loader.load('./Dodge_Charger.glb', (gltf) => {
     window.vehicle = vehicle;
 
     console.log("Dodge Charger loaded with raycast vehicle physics!");
-      console.log("Dodge Charger loaded with raycast vehicle physics!");
+    console.log("Dodge Charger loaded with raycast vehicle physics!");
     console.log("Vehicle object:", vehicle);
     console.log("Chassis body:", chassisBody);
     console.log("Number of wheels:", vehicle.wheelInfos.length);
@@ -482,6 +481,44 @@ function updatephysicsv3(){
 
 }
 
+
+//function applyFlightControls(set: boolean) {
+ //   if (!carBody) return;
+ //   if (false) return;
+
+
+
+    //if (keys["KeyW"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, -thrust), new CANNON.Vec3(0, 0, 0));
+    //if (keys["KeyS"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, thrust), new CANNON.Vec3(0, 0, 0));
+    //if (keys["KeyA"]) carBody.angularVelocity.y += turn;
+    //if (keys["KeyD"]) carBody.angularVelocity.y -= turn;
+    //if (keys["Space"]) carBody.applyLocalForce(new CANNON.Vec3(0, lift, 0), new CANNON.Vec3(0, 0, 0));
+    //if (keys["ShiftLeft"]) carBody.applyLocalForce(new CANNON.Vec3(0, -lift, 0), new CANNON.Vec3(0, 0, 0));
+//}
+
+
+
+function updateCamera() {
+
+    // bugs:
+    // (1) camera does not look at back of car
+    // (2) camera positioning is buggy
+    if (!carBody) return;
+
+    // Desired camera position = car position + offset
+    const desiredPosition = new THREE.Vector3().copy(carBody.position).add(cameraOffset);
+
+    // Smooth camera movement
+    camera.position.lerp(desiredPosition, 0.1);
+
+    // Make camera look slightly ahead of the car for better visibility
+    const lookAtTarget = new THREE.Vector3().copy(carBody.position);
+    //lookAtTarget.z -= 5; // Look ahead in the direction the car is facing
+    camera.lookAt(lookAtTarget);
+}
+
+
+
 function input(){
     /**
      * All game inputs
@@ -489,6 +526,9 @@ function input(){
      * Features:
      * (1) key up and down keyboard presses
      * (2) mobile touch and gyroscope presses
+     * 
+     * To Do:
+     * (1) decouple code base
      * 
      */
     // capture input
@@ -499,8 +539,8 @@ function input(){
     //console.log("Gravity debug: ", GRAVITY);
     
     // Keybindings
-        // Add force on keydown
-        document.addEventListener('keydown', (event) => {
+    // Add force on keydown
+    document.addEventListener('keydown', (event) => {
           switch (event.key) {
             case 'w':
             case 'ArrowUp':
@@ -564,8 +604,8 @@ function input(){
           }
         })
 
-         // Reset force on keyup
-        document.addEventListener('keyup', (event) => {
+    // Reset force on keyup
+    document.addEventListener('keyup', (event) => {
         //carSfx.pause(); // pause sfx
           switch (event.key) {
             case 'w':
@@ -713,9 +753,10 @@ document.addEventListener('pointerup', () => {
     // stop accelerating
 
      if (GRAVITY == -10) {
-                window.vehicle.applyEngineForce(0, 2)
-                window.vehicle.applyEngineForce(0, 3)
-                }
+        //ground    
+        window.vehicle.applyEngineForce(0, 2)
+            window.vehicle.applyEngineForce(0, 3)
+            }
 
                 // air
                 else if (GRAVITY == 0) {
@@ -725,60 +766,26 @@ document.addEventListener('pointerup', () => {
 }
 
 
-//function applyFlightControls(set: boolean) {
- //   if (!carBody) return;
- //   if (false) return;
-
-
-
-    //if (keys["KeyW"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, -thrust), new CANNON.Vec3(0, 0, 0));
-    //if (keys["KeyS"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, thrust), new CANNON.Vec3(0, 0, 0));
-    //if (keys["KeyA"]) carBody.angularVelocity.y += turn;
-    //if (keys["KeyD"]) carBody.angularVelocity.y -= turn;
-    //if (keys["Space"]) carBody.applyLocalForce(new CANNON.Vec3(0, lift, 0), new CANNON.Vec3(0, 0, 0));
-    //if (keys["ShiftLeft"]) carBody.applyLocalForce(new CANNON.Vec3(0, -lift, 0), new CANNON.Vec3(0, 0, 0));
-//}
-
-
-
-function updateCamera() {
-
-    // bugs:
-    // (1) camera does not look at back of car
-    if (!carBody) return;
-
-    // Desired camera position = car position + offset
-    const desiredPosition = new THREE.Vector3().copy(carBody.position).add(cameraOffset);
-
-    // Smooth camera movement
-    camera.position.lerp(desiredPosition, 0.1);
-
-    // Make camera look slightly ahead of the car for better visibility
-    const lookAtTarget = new THREE.Vector3().copy(carBody.position);
-    lookAtTarget.z -= 5; // Look ahead in the direction the car is facing
-    camera.lookAt(lookAtTarget);
-}
-
-const meshRotationOffset = new THREE.Quaternion();
-meshRotationOffset.setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0)); // rotate 90° around Y
-
-const carOffset = new THREE.Vector3(0, -0.7, 0);
-
 
 
 function syncGraphics() {
     /**
+     * 
+     * Features:
+     * (1) syncs the car mesh with the Collision physics forces
+     * 
      * bugs:
      * 
      * (1) buggy wheel rotation
+     * (2) buggy camera positioning
      */
-    if (!carMesh || !carBody || !window.vehicle) return;
+    if (!carMesh || !carBody || !window.vehicle) return; //guar clause
 
-    // 1️⃣ Sync chassis
-    carMesh.position.copy(carBody.position).add(carOffset);
-    carMesh.quaternion.copy(carBody.quaternion).multiply(meshRotationOffset);
+    // Sync chassis
+    carMesh.position.copy(carBody.position).add(carOffset); // sync car body with physics
+    carMesh.quaternion.copy(carBody.quaternion).multiply(meshRotationOffset); //sync car rotation with colliision
 
-    // 2️⃣ Get wheel meshes in correct order: FL, FR, BL, BR
+    // Get wheel meshes in correct order: FL, FR, BL, BR
     const wheelMeshes = [
         carMesh.getObjectByName("Círculo004"), // FL
         carMesh.getObjectByName("Círculo005"), // FR
@@ -786,7 +793,7 @@ function syncGraphics() {
         carMesh.getObjectByName("Círculo007"), // BR
     ];
 
-    // 3️⃣ Per-wheel axis correction quaternions
+    // Per-wheel axis correction quaternions
     // Adjust X/Y/Z based on Blender export
     const leftWheelCorrection = new THREE.Quaternion().setFromEuler(
         new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
@@ -795,7 +802,7 @@ function syncGraphics() {
         new THREE.Euler(-Math.PI / 2, Math.PI, 0) // mirror for right side
     );
 
-    // 4️⃣ Sync each wheel
+    // Sync each wheel
     window.vehicle.wheelInfos.forEach((wheel, i) => {
         const mesh = wheelMeshes[i];
         if (!mesh) return;
@@ -943,7 +950,7 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
 
 
  function createFloorStaticBodyFromMesh(mesh: THREE.Mesh): void {
-    const FLOOR_THICKNESS = 5; // 🔥 collision thickness (world units)
+    const FLOOR_THICKNESS = 5; // collision thickness (world units)
 
     if (!mesh.geometry || !mesh.geometry.attributes.position) {
         console.warn('Mesh has no geometry, skipping collider');
@@ -956,7 +963,7 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
     if (!bbox) return;
 
     // Decompose world transform
-    const worldPosition = new THREE.Vector3();
+    const worldPosition = new THREE.Vector3(0,0,0);
     const worldQuaternion = new THREE.Quaternion();
     const worldScale = new THREE.Vector3();
 
@@ -968,7 +975,7 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
     bbox.getSize(size);
     size.multiply(worldScale);
 
-    // 🔥 Create thick box collider
+    // Create thick box collider
     const halfExtents = new CANNON.Vec3(
         size.x / 2,
         FLOOR_THICKNESS / 2,
@@ -977,7 +984,7 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
 
     const shape = new CANNON.Box(halfExtents);
 
-    // ⬇️ Lower collider so top matches mesh surface
+    // Lower collider so top matches mesh surface
     const bodyPosition = new CANNON.Vec3(
         worldPosition.x,
         worldPosition.y - FLOOR_THICKNESS / 2,
@@ -1003,8 +1010,16 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
    
 
 
-const DEBUG = false;
-
+/**
+ * Core Game Loop
+ * 
+ * Features:
+ * (1) render 3d world with Cannon js
+ * (2) register user input
+ * (3) sync the game physics by copying physics data onto the 3d meshes
+ * (4) sync the camera to follow the car object
+ * (5) visually debug the world physics if needed
+ */
 function animate() {
     requestAnimationFrame(animate);
     input();
@@ -1020,3 +1035,38 @@ function animate() {
 
 animate();
 
+
+
+
+//Ads
+/**
+ * 
+ *   <!-- Game Monetize ads SDK + Ads testing -->
+<script src="https://html5.api.gamemonetize.com/sdk.js"></script>
+<script type="text/javascript">
+   window.SDK_OPTIONS = {
+      gameId: "01bsf4imoujpniyvppnz89kgh6tyl6nb",
+      onEvent: function (a) {
+         switch (a.name) {
+            case "SDK_GAME_PAUSE":
+               // pause game logic / mute audio
+               break;
+            case "SDK_GAME_START":
+               // advertisement done, resume game logic and unmute audio
+               break;
+            case "SDK_READY":
+               // when sdk is ready
+               //console.log("game is ready");
+               //console.log("Banners Ads Testing>>>>>>");
+               sdk.showBanner();
+               break;
+         }
+      }
+   };
+(function (a, b, c) {
+   var d = a.getElementsByTagName(b)[0];
+   a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://api.gamemonetize.com/sdk.js", d.parentNode.insertBefore(a, d))
+})(document, "script", "gamemonetize-sdk"); 
+</script>         
+
+ */
