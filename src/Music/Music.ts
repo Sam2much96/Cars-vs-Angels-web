@@ -103,7 +103,7 @@ export class Music {
         //});
         //music.play();
 
-        this.play();
+        
     }
 
     async play(){
