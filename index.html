@@ -40,14 +40,12 @@
  <!-- Preload 3D models -->
 <link rel="preload" href="./Dodge_Charger.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous">
 <link rel="preload" href="./ground_mesh.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous">
+<link rel="preload" href="./buildings_mesh.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous">
 
 <!-- Load Music -->
- <!-- To do: (1) Use zzfxm audio for music -->
-<audio id="bgMusic" src="./beaach_sex_chike_san.ogg" preload="auto" crossorigin="anonymous"></audio>
+ 
 
 <!-- Preload 3D hdr files -->
-<link rel="preload" href="./autumn_field_puresky_1k.hdr" as="fetch" crossorigin="anonymous">
-<link rel="preload" href="./mud_road_puresky_1k.hdr" as="fetch" crossorigin="anonymous">
 <link rel="preload" href="./kloppenheim_07_puresky_1k.hdr" as="fetch" crossorigin="anonymous">
 
   <!-- Statically preload all image files-->
@@ -69,9 +67,11 @@
   
 
   <!-- all audio files-->
-
-  <!-- to do: (1) add in all music && sfx files-->
+  <script src="./audio/songs/under_world.js" ></script>
+  <script src="./audio/songs/castlevania2_bloody.js"></script>
   
+  <!-- add sfx -->
+
   <div id="clock">00:00:00</div>
   <div id="cash">$10000000</div>
   <div id="health">100</div>

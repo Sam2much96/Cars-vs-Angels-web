@@ -85,6 +85,8 @@ updateClock();
 // Music & SFX
 // ------------------------------------------------------
 window.music = new Music();
+window.music.play();
+
 
 //
 //

@@ -11,7 +11,7 @@
 
 
 // Import Howl class for music sfx
-import { Howl } from 'howler';
+//import { Howl } from 'howler';
 
 
 import { zzfxM } from '../../src/Zzfxm/zzfxm';
@@ -22,7 +22,10 @@ import {zzfxP, zzfxX} from  "../../src/Zzfxm/zzfx";
 export class Music {
     public enable : boolean = false;
     public volume : number = 50;
-    public default_playlist: Record<number,string> =  {0:"./audio/songs/under_world.js",};
+    public default_playlist: Record<number,string> =  {
+        0:"./audio/songs/under_world.js",
+        1:"./audio/songs/castlevania2_bloody.js"
+    };
 
     // track debug variables 
     public stream : AudioBufferSourceNode | undefined;
@@ -117,7 +120,7 @@ export class Music {
 
         const load = async ()  => {
 
-                let newTrack = this.default_playlist[0]; // get a default track
+                let newTrack = this.shuffle(this.default_playlist); // get a random track
 
                 console.log ("track debug : ", newTrack);
                 const res = await fetch(newTrack);
@@ -201,6 +204,26 @@ export class Music {
         };
     }
 
+
+    shuffle(playlist: Record<number, string>) : string {
+
+        //var track = this.default_playlist;
+
+        // port godot random shuffle code for this implementation
+        // Filter out the last played track and pick a random one from the remaining tracks
+        //var availableTracks = this.default_playlist.filter(track => track !== this.lastPlayedTrack);
+        //this.randomTrack = availableTracks[Math.floor(Math.random() * availableTracks.length)];
+
+
+        // Log the selected track
+        //console.log("Selected Track: ", this.randomTrack, "/", this.counter);
+
+        // Shuffle function ported
+        const keys = Object.keys(playlist).map(Number);
+        const randomKey = keys[Math.floor(Math.random() * keys.length)];
+        return playlist[randomKey];
+
+    }
 
     unsafeParse(str: string) : any {
 
