@@ -2,16 +2,15 @@
  * Main game logic 
  * 
  * to do: 
- * (1) 
- * (2) 
- * (3) implement cannon-es vehicle physics for the car (done)
- * (4) implement static physics for the world environment and buildings (1/3)
+ * (1) implement react UI
+ * (2) implement threejs shader for enemy character object
+ * (3)  * (4) implement static physics for the world environment and buildings (1/3)
  * (5) add music and sfx (1/2)
- * (6) simplify vehicle collision into single class object with exported vehicle variables (1/2)
+ * (6) 
  * (7) add money models + collisions
  * (8) add npc sprites with navigation ai
- * (9) add angel model enemy object
- * (10) add car playing mechanics
+ * (9) add angel model enemy object (1/3)
+ * (10) 
  * (11) organise code blocs into various classes and scripts for easier programming  
  * (12) implement texturing in world level
  * (13) implement cash and mission system
@@ -19,8 +18,9 @@
  * (15) implement hdr and weather system
  * (16) port material data into threejs and depreciate material image usage
  * (17) replace howlerjs with zzfxm and zzfx
- * (18) separate codebase into separate scripts
- * (19) desccribe differnt game states & enumerations for each of the differnt hdr's
+ * (18) 
+ *  (19) desccribe differnt game states & enumerations for each of the differnt hdr's
+ * (20) create gem /cash items that despawn and also increase your cash balance
  * 
  * bugs:
  * (1) fix camera follow logic
@@ -34,19 +34,30 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'; 
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 
+
+
 // for 3d physics and collisions
 import * as CANNON from "cannon-es";
 import CannonDebugger from 'cannon-es-debugger';
 
 
+// using react for the Projects's UI
+//import {UI} from "./src/UI/UI";
+//import UI from './src/UI/UI.tsx';
+import './src/UI/ui-mount.tsx';  // side-effect import, mounts the UI
+import { uiStore } from './src/UI/ui-score';
 
 
 
 // Music singleton
 import { Music } from './src/Music/Music';
 
-import { Vehicle, syncGraphics, updatephysicsv3 } from './Vehicle';
-import { input } from './Inputs';
+import { Vehicle} from './src/Vehicle/Vehicle';
+import {Enemy} from "./src/Characters/Enemy2";
+//import {Enemy} from "./src/Characters/Enemy.ts";
+import { input, initDeviceOrientationControls } from './Inputs';
+
+import { syncAngelGraphics, syncCarGraphics } from './syncGraphics.ts';
 
 // ------------------------------------------------------
 // GLOBALS
@@ -55,32 +66,34 @@ import { input } from './Inputs';
 declare global {
     interface Window {
         Vehicle: Vehicle,
+        Angel : Enemy,
         music : Music,
         scene :THREE.Scene, //global 3js scene pointer
         world : CANNON.World, // cannon es physics world pointer
+        camera : THREE.PerspectiveCamera, // global pointer to camera
     }
 }
+
 
 // ------------------------------------------------------
 // UI
 // ------------------------------------------------------
-const clockElement = document.getElementById('clock');
+uiStore.setCash(0);
+uiStore.setHealth(75);
 
-function updateClock() {
-  if (!clockElement) return;
 
-  const now = new Date();
-  const hours = now.getHours().toString().padStart(2, '0');
-  const minutes = now.getMinutes().toString().padStart(2, '0');
-  const seconds = now.getSeconds().toString().padStart(2, '0');
 
-  clockElement.textContent = `${hours}:${minutes}:${seconds}`;
-}
-// Update every second
-setInterval(updateClock, 1000);
 
-// Initialize immediately
-updateClock();
+// ------------------------------------------------------
+// LOADERS
+// ------------------------------------------------------
+
+//const loader = new GLTFLoader();
+
+// ------------------------------------------------------
+// Input
+// ------------------------------------------------------
+//initDeviceOrientationControls();
 
 
 // ------------------------------------------------------
@@ -92,31 +105,25 @@ window.music.play();
 
 
 
-
-
-
-
-
-
-
 // ------------------------------------------------------
 // Overall Level Debug
 // ------------------------------------------------------
-const DEBUG = true;
+const DEBUG = false;
 
 
 // ------------------------------------------------------
 // SCENE, CAMERA, RENDERER
 // ------------------------------------------------------
 
-const scene = new THREE.Scene();
-window.scene = scene;
+window.scene = new THREE.Scene();
+//window.scene = scene;
 
  
-// Set the camera offset from the car
-const cameraOffset = new THREE.Vector3(0, 2.5, -7); // x=side, y=height, z=behind
+
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 5, 6);
+window.camera = camera;
+
 
 const renderer = new THREE.WebGLRenderer({ 
     antialias: true,
@@ -155,10 +162,10 @@ pmrem.compileEquirectangularShader();
 const HDRloader = new HDRLoader();
 const envMap = await HDRloader.loadAsync("kloppenheim_07_puresky_1k.hdr");
 envMap.mapping = THREE.EquirectangularReflectionMapping;
-scene.environment = envMap; // reflections
-scene.background = envMap; //skybox 
+window.scene.environment = envMap; // reflections
+window.scene.background = envMap; //skybox 
 
-scene.fog = new THREE.Fog(0x87ceeb, 100, 1000); // Add fog for distance
+window.scene.fog = new THREE.Fog(new THREE.Color().setHex(0x87ceeb), 100, 1000); // Add fog for distance
 
 console.log("HDR environment loaded (HDRLoader)!");
 
@@ -168,11 +175,11 @@ console.log("HDR environment loaded (HDRLoader)!");
 // ------------------------------------------------------ 
 // Lights
 // ------------------------------------------------------
-scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+window.scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
 const dirLight = new THREE.DirectionalLight(0xffffff, 2);
 dirLight.position.set(5, 10, 5);
-scene.add(dirLight);
+window.scene.add(dirLight);
 
 
 
@@ -193,7 +200,7 @@ world.broadphase = new CANNON.SAPBroadphase(world)
 // Disable friction by default
 world.defaultContactMaterial.friction = 0
 
-const cannonDebugger = CannonDebugger(scene, world);
+const cannonDebugger = CannonDebugger(window.scene, world);
 
 
 
@@ -256,7 +263,7 @@ loader.load('./ground_mesh.glb', (gltf) => {
         }
     });
 
-    scene.add(city);
+    window.scene.add(city);
 
 }, undefined, (err) => {
     console.error('CITY LOAD ERROR:', err);
@@ -264,6 +271,16 @@ loader.load('./ground_mesh.glb', (gltf) => {
 
 
 
+
+// ------------------------------------------------------
+// Vehicle
+// ------------------------------------------------------
+const PlayerCar = new Vehicle(window.scene, window.world, loader);
+window.Vehicle = PlayerCar;
+
+
+// temporarily disabled for faster game iteration Feb 12/ 2026
+/**
 
 loader.load('./buildings_mesh.glb', (gltf) => {
     const buildings = gltf.scene;
@@ -277,13 +294,8 @@ loader.load('./buildings_mesh.glb', (gltf) => {
     console.error('CITY LOAD ERROR:', err);
 });
 
+ */
 
-
-
-// ------------------------------------------------------
-// Vehicle
-// ------------------------------------------------------
-window.Vehicle = new Vehicle();
 
 
 
@@ -300,45 +312,66 @@ window.addEventListener('keyup', (e) => keys[e.code] = false);
 // GAME LOOP
 // ------------------------------------------------------
 
+// enemy testing Feb 12. 2026
+
+window.Angel = new Enemy(window.scene, window.world, loader);
 
 
 
-//function applyFlightControls(set: boolean) {
- //   if (!carBody) return;
- //   if (false) return;
 
 
 
-    //if (keys["KeyW"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, -thrust), new CANNON.Vec3(0, 0, 0));
-    //if (keys["KeyS"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, thrust), new CANNON.Vec3(0, 0, 0));
-    //if (keys["KeyA"]) carBody.angularVelocity.y += turn;
-    //if (keys["KeyD"]) carBody.angularVelocity.y -= turn;
-    //if (keys["Space"]) carBody.applyLocalForce(new CANNON.Vec3(0, lift, 0), new CANNON.Vec3(0, 0, 0));
-    //if (keys["ShiftLeft"]) carBody.applyLocalForce(new CANNON.Vec3(0, -lift, 0), new CANNON.Vec3(0, 0, 0));
-//}
+
+
+export function updatephysicsv3(){
+    // simultate world and car physics
+    if (!window.Vehicle.vehicle) return;
+    if (!window.world) return;
+
+    window.world.step(1/30);
+
+        // Vehicle Physics
+        if (window.Vehicle.vehicle) {
+        window.Vehicle.vehicle.updateVehicle(window.world.dt);
+
+        // ENemy Physics
+        if (window.Angel){
+            // temporarilty disabled for refactoring
+            //window.Angel.update(window.world.dt, window.Vehicle.carMesh?.position);
+        }
+    }
+
+}
 
 
 
-function updateCamera() {
+export function updateCamera() {
 
-    // bugs:
-    // (1) camera does not look at back of car
-    // (2) camera positioning is buggy
+    /**
+     * Update Camera Function
+     * 
+     * bugs:
+     * (1) camera does not look at back of car
+     * (2) camera positioning is buggy
+     * 
+     */
     if (!window.Vehicle.carBody) return;
+
+
+    // Set the camera offset from the car
+    const cameraOffset = new THREE.Vector3(0, 2.5, -7); // x=side, y=height, z=behind
 
     // Desired camera position = car position + offset
     const desiredPosition = new THREE.Vector3().copy(window.Vehicle.carBody.position).add(cameraOffset);
 
     // Smooth camera movement
-    camera.position.lerp(desiredPosition, 0.1);
+    window.camera.position.lerp(desiredPosition, 0.1);
 
     // Make camera look slightly ahead of the car for better visibility
     const lookAtTarget = new THREE.Vector3().copy(window.Vehicle.carBody.position);
     //lookAtTarget.z -= 5; // Look ahead in the direction the car is facing
-    camera.lookAt(lookAtTarget);
+    window.camera.lookAt(lookAtTarget);
 }
-
-
 
 
 
@@ -520,6 +553,8 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
    
 
 
+
+
 /**
  * Core Game Loop
  * 
@@ -534,13 +569,14 @@ function animate() {
     requestAnimationFrame(animate);
     input();
     updatephysicsv3();
-    syncGraphics(); //temporarily disabled for debugging
+    syncCarGraphics(); //temporarily disabled for debugging
+    syncAngelGraphics();
     updateCamera();
     if (DEBUG){
         cannonDebugger.update();
     }
     
-    renderer.render(scene, camera);
+    renderer.render(window.scene, camera);
 }
 
 animate();

@@ -1,7 +1,13 @@
 /**
  * All Vehicle Scripts and Variables
  * 
+ * Features
+ * (1) Uses Cannones raycast vehicle physics to create and control a 3d car simulation
  * 
+ * to do:
+ * (1) better camera controls
+ * (2) restart game if car falls off map
+ * (3) improved car floating state machine
  */
 
 // for 3d mesh and texture rendering
@@ -31,7 +37,7 @@ export class Vehicle {
     public turn = 0.005;   // yaw
 
 
-    constructor(){
+    constructor(scene : THREE.Scene, world: CANNON.World, loader : GLTFLoader){
 
         //
         //
@@ -49,11 +55,6 @@ export class Vehicle {
         
 
 
-        // ------------------------------------------------------
-        // LOADERS
-        // ------------------------------------------------------
-
-        const loader = new GLTFLoader();
 
         /**
          * DODGE CHARGER MODEL
@@ -91,7 +92,9 @@ export class Vehicle {
             // Center and scale the model
             this.carMesh.scale.set(1, 1, 1);
             this.carMesh.position.set(0, 5, 0);
-            window.scene.add(this.carMesh);
+
+            
+            scene.add(this.carMesh);
         
         
             // --------------------------------------------------
@@ -111,7 +114,7 @@ export class Vehicle {
         
         
             chassisBody.addShape(chassisShape);
-            window.world.addBody(chassisBody);
+            world.addBody(chassisBody);
         
             // 2. Create Raycast Vehicle
             const vehicle = new CANNON.RaycastVehicle({
@@ -153,7 +156,7 @@ export class Vehicle {
                 wheelOptions.chassisConnectionPointLocal.set(1.8, 0, -1.8)
                 vehicle.addWheel(wheelOptions)
         
-                vehicle.addToWorld(window.world)
+                vehicle.addToWorld(world)
         
         
                // Add the wheel bodies
@@ -175,11 +178,11 @@ export class Vehicle {
         
                   wheelBodies.push(wheelBody)
                   //demo.addVisual(wheelBody)
-                  window.world.addBody(wheelBody)
+                  world.addBody(wheelBody)
                 })
         
                  // Update the wheel collision bodies
-                window.world.addEventListener('postStep', () => {
+                world.addEventListener('postStep', () => {
                   for (let i = 0; i < vehicle.wheelInfos.length; i++) {
                     vehicle.updateWheelTransform(i)
                     const transform = vehicle.wheelInfos[i].worldTransform
@@ -213,82 +216,5 @@ export class Vehicle {
 
 
 
-export function syncGraphics() {
-    /**
-     * 
-     * Features:
-     * (1) syncs the car mesh with the Collision physics forces
-     * 
-     * bugs:
-     * 
-     * (1) buggy wheel rotation
-     * (2) buggy camera positioning
-     */
-    if (!window.Vehicle.carMesh || !window.Vehicle.carBody || !window.Vehicle.vehicle) return; //guar clause
-
-    // Sync chassis
-    window.Vehicle.carMesh.position.copy(window.Vehicle.carBody.position).add(window.Vehicle?.carOffset); // sync car body with physics
-    window.Vehicle.carMesh.quaternion.copy(window.Vehicle.carBody.quaternion).multiply(window.Vehicle.meshRotationOffset); //sync car rotation with colliision
-
-    // Get wheel meshes in correct order: FL, FR, BL, BR
-    const wheelMeshes = [
-        window.Vehicle.carMesh?.getObjectByName("Círculo004"), // FL
-        window.Vehicle.carMesh?.getObjectByName("Círculo005"), // FR
-        window.Vehicle.carMesh?.getObjectByName("Círculo006"), // BL
-        window.Vehicle.carMesh?.getObjectByName("Círculo007"), // BR
-    ];
-
-    // Per-wheel axis correction quaternions
-    // Adjust X/Y/Z based on Blender export
-    const leftWheelCorrection = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
-    );
-    const rightWheelCorrection = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(-Math.PI / 2, Math.PI, 0) // mirror for right side
-    );
-
-    // Sync each wheel
-    window.Vehicle.vehicle?.wheelInfos.forEach((wheel, i) => {
-        const mesh = wheelMeshes[i];
-        if (!mesh) return;
-
-        // Update wheel physics transform
-        window.Vehicle.vehicle?.updateWheelTransform(i);
-        const wt = wheel.worldTransform;
-
-        // Copy position
-        //mesh.position.copy(wt.position);
-
-        // Copy rotation safely
-        const q = new THREE.Quaternion(
-            wt.quaternion.x,
-            wt.quaternion.y,
-            wt.quaternion.z,
-            wt.quaternion.w
-        );
-
-        // Apply per-wheel correction
-        if (i === 0 || i === 2) {
-            // FL / BL
-            q.multiply(leftWheelCorrection);
-        } else {
-            // FR / BR
-            q.multiply(rightWheelCorrection);
-        }
-
-        mesh.quaternion.copy(q);
-    });
-}
 
 
-export function updatephysicsv3(){
-    // simultate world and car physics
-    if (!window.Vehicle.vehicle) return;
-    if (!window.world) return;
-
-    window.world.step(1/60);
-        if (window.Vehicle.vehicle) {
-        window.Vehicle.vehicle.updateVehicle(world.dt);
-    }
-
-}

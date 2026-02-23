@@ -9,6 +9,9 @@
      "allowJs": true,
     "checkJs": false,
     "declaration": true,
+    /* Typescript */
+    "jsx": "react-jsx",
+    
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -21,10 +24,10 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
+    "erasableSyntaxOnly": false,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "public/audio/zzfxm-worklet.js"],
+  "include": ["src", "public/audio/zzfxm-worklet.js", "globals.d.ts", "globals.d.ts"],
   "exclude": ["node_modules"]
 }

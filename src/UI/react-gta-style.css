@@ -1,0 +1,68 @@
+@font-face {
+    font-family: 'PricedownBl';
+    src: url('/PricedownBl-Regular 900.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    color: #fff;
+    font-family: 'PricedownBl', sans-serif;
+  }
+
+  #clock {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    font-family: 'PricedownBl';
+    font-size: 38px;
+    color: #e9c225;
+    text-shadow:
+      -3px -3px 0 #000,
+       3px -3px 0 #000,
+      -3px  3px 0 #000,
+       3px  3px 0 #000,
+      -3px  0px 0 #000,
+       3px  0px 0 #000,
+       0px -3px 0 #000,
+       0px  3px 0 #000;
+  }
+
+  #cash {
+    position: fixed;
+    top: 50px;
+    right: 10px;
+    font-family: 'PricedownBl', sans-serif;
+    font-size: 38px;
+    color: #ffffff;
+    text-shadow:
+      -3px -3px 0 #000,
+       3px -3px 0 #000,
+      -3px  3px 0 #000,
+       3px  3px 0 #000,
+      -3px  0px 0 #000,
+       3px  0px 0 #000,
+       0px -3px 0 #000,
+       0px  3px 0 #000;
+  }
+
+  #health {
+    position: fixed;
+    top: 90px;
+    right: 10px;
+    font-family: 'PricedownBl', sans-serif;
+    font-size: 38px;
+    color: #c70303;
+    text-shadow:
+      -3px -3px 0 #000,
+       3px -3px 0 #000,
+      -3px  3px 0 #000,
+       3px  3px 0 #000,
+      -3px  0px 0 #000,
+       3px  0px 0 #000,
+       0px -3px 0 #000,
+       0px  3px 0 #000;
+  }

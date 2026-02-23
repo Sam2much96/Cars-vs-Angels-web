@@ -17,6 +17,16 @@ hammer.get('swipe').set({ direction: Hammer.DIRECTION_ALL });
 
 
 
+export class Input{
+    /**
+     * to do:
+     * (1) serialise input into a class with branches for mobile and pc controls
+     * (2) export an update function for calling inputs by breaking down the code bloc below
+     * 
+     */
+
+};
+
 export function input(){
     /**
      * All game inputs
@@ -27,6 +37,9 @@ export function input(){
      * 
      * To Do:
      * (1) decouple code base
+     * 
+     * Bugs:
+     * (1) Screen touch input is buggy
      * 
      */
     // capture input
@@ -266,3 +279,97 @@ document.addEventListener('pointerup', () => {
                 }
 });
 }
+
+
+
+
+//function applyFlightControls(set: boolean) {
+ //   if (!carBody) return;
+ //   if (false) return;
+
+
+
+    //if (keys["KeyW"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, -thrust), new CANNON.Vec3(0, 0, 0));
+    //if (keys["KeyS"]) carBody.applyLocalForce(new CANNON.Vec3(0, 0, thrust), new CANNON.Vec3(0, 0, 0));
+    //if (keys["KeyA"]) carBody.angularVelocity.y += turn;
+    //if (keys["KeyD"]) carBody.angularVelocity.y -= turn;
+    //if (keys["Space"]) carBody.applyLocalForce(new CANNON.Vec3(0, lift, 0), new CANNON.Vec3(0, 0, 0));
+    //if (keys["ShiftLeft"]) carBody.applyLocalForce(new CANNON.Vec3(0, -lift, 0), new CANNON.Vec3(0, 0, 0));
+//}
+
+
+
+
+/**
+ * Requests permission and initializes device orientation controls
+ * @returns Promise that resolves to true if permission granted, false otherwise
+ */
+export async function initDeviceOrientationControls(): Promise<boolean> {
+  try {
+    // Check if DeviceOrientationEvent exists and has requestPermission (iOS 13+)
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+      
+      // Request permission (required for iOS 13+)
+      const permission = await (DeviceOrientationEvent as any).requestPermission();
+      
+      if (permission === 'granted') {
+        setupDeviceOrientationListener();
+        return true;
+      } else {
+        console.warn('Device orientation permission denied');
+        return false;
+      }
+    } else {
+      // For browsers that don't require permission (Android, older iOS)
+      setupDeviceOrientationListener();
+      return true;
+    }
+  } catch (error) {
+    console.error('Error requesting device orientation permission:', error);
+    return false;
+  }
+}
+
+
+/**
+ * Sets up the device orientation event listener
+ */
+function setupDeviceOrientationListener(): void {
+  window.addEventListener('deviceorientation', (event: DeviceOrientationEvent) => {
+    const gamma = event.gamma; // left-right tilt (-90 to 90)
+    const beta = event.beta;   // front-back tilt (-180 to 180)
+    
+    if (gamma === null || beta === null) {
+      return; // Sensor data not available
+    }
+    
+    // Map gamma (-90..90) to steering
+    const maxSteer = 0.5;
+    const steer = THREE.MathUtils.clamp(gamma / 45, -1, 1) * maxSteer;
+    
+    window.Vehicle.vehicle?.setSteeringValue(steer, 0);
+    window.Vehicle.vehicle?.setSteeringValue(steer, 1);
+    
+    // Map beta to acceleration/brake
+    const engineForce = 80000;
+    const throttle = THREE.MathUtils.clamp(beta / 45, -1, 1);
+    
+    window.Vehicle.vehicle?.applyEngineForce(-throttle * engineForce, 2);
+    window.Vehicle.vehicle?.applyEngineForce(-throttle * engineForce, 3);
+  }, { passive: true }); // Add passive flag for better performance
+}
+
+// Example usage with a button click (required for iOS):
+/*
+const enableTiltButton = document.getElementById('enable-tilt-controls');
+enableTiltButton?.addEventListener('click', async () => {
+  const granted = await initDeviceOrientationControls();
+  if (granted) {
+    console.log('Tilt controls enabled');
+    enableTiltButton.style.display = 'none';
+  } else {
+    alert('Please allow access to device orientation in your browser settings');
+  }
+});
+*/
