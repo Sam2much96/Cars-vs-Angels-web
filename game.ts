@@ -24,7 +24,9 @@
  * 
  * bugs:
  * (1) fix camera follow logic
- * (2) fix vehicle collisions
+ * (2) fix vehicle tire collisions
+ * (3) load time is lengthy, add a title screen to hide model load times
+ * (4) model load time is buggy preload necessary models optimally and implement an optimised model size (draco compression) to speed up load times
  * 
  *
  */
@@ -41,23 +43,29 @@ import * as CANNON from "cannon-es";
 import CannonDebugger from 'cannon-es-debugger';
 
 
+
 // using react for the Projects's UI
 //import {UI} from "./src/UI/UI";
 //import UI from './src/UI/UI.tsx';
-import './src/UI/ui-mount.tsx';  // side-effect import, mounts the UI
-import { uiStore } from './src/UI/ui-score';
+import './src/UI/ui-mount.tsx';  // mounts the React UI
+import { uiStore } from './src/UI/ui-score'; // globals database for UI
 
 
 
 // Music singleton
 import { Music } from './src/Music/Music';
 
+// 3d level objects with Collisions
+//import (Terrain) from "./src/Level/ground";
 import { Vehicle} from './src/Vehicle/Vehicle';
-import {Enemy} from "./src/Characters/Enemy2";
-//import {Enemy} from "./src/Characters/Enemy.ts";
-import { input, initDeviceOrientationControls } from './Inputs';
+import {Enemy} from "./src/Characters/Enemy";
+import {Rock} from "./src/props/rocks"
+import {Gem} from "./src/props/gem";
+import {Terrain} from "./src/Level/ground";
+import {Buildings} from "./src/Level/buildings";
 
-import { syncAngelGraphics, syncCarGraphics } from './syncGraphics.ts';
+
+import { syncAngelGraphics } from './syncGraphics.ts';
 
 // ------------------------------------------------------
 // GLOBALS
@@ -70,10 +78,12 @@ declare global {
         music : Music,
         scene :THREE.Scene, //global 3js scene pointer
         world : CANNON.World, // cannon es physics world pointer
+        loader : GLTFLoader,
         camera : THREE.PerspectiveCamera, // global pointer to camera
     }
 }
 
+const DEFAULT_GRAVITY = -10
 
 // ------------------------------------------------------
 // UI
@@ -93,7 +103,10 @@ uiStore.setHealth(75);
 // ------------------------------------------------------
 // Input
 // ------------------------------------------------------
-//initDeviceOrientationControls();
+
+
+
+
 
 
 // ------------------------------------------------------
@@ -108,7 +121,7 @@ window.music.play();
 // ------------------------------------------------------
 // Overall Level Debug
 // ------------------------------------------------------
-const DEBUG = false;
+const DEBUG = true;
 
 
 // ------------------------------------------------------
@@ -160,7 +173,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
 
 const HDRloader = new HDRLoader();
-const envMap = await HDRloader.loadAsync("kloppenheim_07_puresky_1k.hdr");
+const envMap = await HDRloader.loadAsync("mud_road_puresky_1k.hdr");
 envMap.mapping = THREE.EquirectangularReflectionMapping;
 window.scene.environment = envMap; // reflections
 window.scene.background = envMap; //skybox 
@@ -192,7 +205,7 @@ const world = new CANNON.World();
 window.world = world;
 
 
-world.gravity.set(0, -10, 0)
+world.gravity.set(0, DEFAULT_GRAVITY, 0)
 
 // Sweep and prune broadphase
 world.broadphase = new CANNON.SAPBroadphase(world)
@@ -209,112 +222,33 @@ const cannonDebugger = CannonDebugger(window.scene, world);
 // LOADERS
 // ------------------------------------------------------
 
-const loader = new GLTFLoader();
-
-const loadedBuildings = [];
-
-// Track loading progress
-let totalBuildings = 0;
-let loadedCount = 0;
+window.loader = new GLTFLoader();
 
 
 
 
-
-
-
-
-// ------------------------------------------------------
-// (1) LOAD CITY MAP (STATIC ENVIRONMENT)
-// ------------------------------------------------------
-
-// bug:
-// (1) city map level needs optimisation to fix occlusiion culling (done)
-// (2) remove all materials from level object and fix positioning (done)
-// (3) roads keep floating in model export, (1/2)
-
-loader.load('./ground_mesh.glb', (gltf) => {
-    const city = gltf.scene;
-    city.traverse((obj) => {
-        if (obj instanceof THREE.Mesh) {
-            obj.castShadow = true;
-            obj.receiveShadow = true;
-            obj.frustumCulled = false;
-            obj.geometry.computeBoundingBox();
-            obj.geometry.computeBoundingSphere();
-
-            //console.log("Mesh found:", obj.name);
-
-             //Add static world physics to the map terrain
-            if (obj.name === "Terrain001"){
-                // create terrain static body
-                createFloorStaticBodyFromMesh(obj);
-
-                 // Set brown terrain material
-                obj.material = new THREE.MeshStandardMaterial({
-                    color: 0x7A7A7A,   // Concrete grey
-                    roughness: 0.9,
-                    metalness: 0.0
-                });
-
-                // Optional: keep textures if terrain already has UVs
-                obj.material.needsUpdate = true;
-            }
-        }
-    });
-
-    window.scene.add(city);
-
-}, undefined, (err) => {
-    console.error('CITY LOAD ERROR:', err);
-});
-
-
+// Level props
+const ground = new Terrain();
+const buildings = new Buildings();
 
 
 // ------------------------------------------------------
 // Vehicle
 // ------------------------------------------------------
-const PlayerCar = new Vehicle(window.scene, window.world, loader);
+const PlayerCar = new Vehicle();
 window.Vehicle = PlayerCar;
 
 
-// temporarily disabled for faster game iteration Feb 12/ 2026
-/**
-
-loader.load('./buildings_mesh.glb', (gltf) => {
-    const buildings = gltf.scene;
-    buildings.traverse((obj) => {
-      
-    });
-
-    scene.add(buildings);
-
-}, undefined, (err) => {
-    console.error('CITY LOAD ERROR:', err);
-});
-
- */
 
 
 
+window.Angel = new Enemy();
 
-// ------------------------------------------------------
-// SIMPLE CONTROLS (forward/back/left/right)
-// ------------------------------------------------------
 
-const keys: Record<string, boolean> = {};
 
-window.addEventListener('keydown', (e) => keys[e.code] = true);
-window.addEventListener('keyup', (e) => keys[e.code] = false);
-
-// ------------------------------------------------------
-// GAME LOOP
-// ------------------------------------------------------
-
-// enemy testing Feb 12. 2026
-
-window.Angel = new Enemy(window.scene, window.world, loader);
+// testing 3d game items
+const testing_1 = new Rock();
+const testing_2 = new Gem();
 
 
 
@@ -323,234 +257,9 @@ window.Angel = new Enemy(window.scene, window.world, loader);
 
 
 
-export function updatephysicsv3(){
-    // simultate world and car physics
-    if (!window.Vehicle.vehicle) return;
-    if (!window.world) return;
-
-    window.world.step(1/30);
-
-        // Vehicle Physics
-        if (window.Vehicle.vehicle) {
-        window.Vehicle.vehicle.updateVehicle(window.world.dt);
-
-        // ENemy Physics
-        if (window.Angel){
-            // temporarilty disabled for refactoring
-            //window.Angel.update(window.world.dt, window.Vehicle.carMesh?.position);
-        }
-    }
-
-}
 
 
 
-export function updateCamera() {
-
-    /**
-     * Update Camera Function
-     * 
-     * bugs:
-     * (1) camera does not look at back of car
-     * (2) camera positioning is buggy
-     * 
-     */
-    if (!window.Vehicle.carBody) return;
-
-
-    // Set the camera offset from the car
-    const cameraOffset = new THREE.Vector3(0, 2.5, -7); // x=side, y=height, z=behind
-
-    // Desired camera position = car position + offset
-    const desiredPosition = new THREE.Vector3().copy(window.Vehicle.carBody.position).add(cameraOffset);
-
-    // Smooth camera movement
-    window.camera.position.lerp(desiredPosition, 0.1);
-
-    // Make camera look slightly ahead of the car for better visibility
-    const lookAtTarget = new THREE.Vector3().copy(window.Vehicle.carBody.position);
-    //lookAtTarget.z -= 5; // Look ahead in the direction the car is facing
-    window.camera.lookAt(lookAtTarget);
-}
-
-
-
-
-
-
- /**
-* Create a Cannon-es static body from a Three.js mesh
-* @param mesh - Three.js mesh to convert to collision body
-*/
-function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
-        // ignore Landscape001 mesh, that is for the toonshader
-        //if (mesh.name === "Landscape001"){
-        //    return
-        //}
-        
-        const geometry = mesh.geometry;
-        
-        // Check if geometry has valid attributes
-        if (!geometry.attributes.position) {
-            console.warn('Mesh has no position attributes, skipping collision body');
-            return;
-        }
-
-        // Get world position and rotation
-        const worldPosition = new THREE.Vector3();
-        const worldQuaternion = new THREE.Quaternion();
-        const worldScale = new THREE.Vector3();
-        
-        mesh.updateWorldMatrix(true, false);
-        mesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
-
-        // Create collision shape based on geometry type
-        let shape: CANNON.Shape;
-        
-        if (geometry instanceof THREE.BoxGeometry) {
-            // For box geometry, use Box shape
-            const size = new THREE.Vector3();
-            geometry.computeBoundingBox();
-            geometry.boundingBox!.getSize(size);
-            size.multiply(worldScale);
-            
-            shape = new CANNON.Box(new CANNON.Vec3(
-                size.x / 2,
-                size.y / 2, 
-                size.z / 2
-            ));
-        } else if (geometry instanceof THREE.SphereGeometry) {
-            // For sphere geometry, use Sphere shape
-            const radius = geometry.parameters.radius * Math.max(worldScale.x, worldScale.y, worldScale.z);
-            shape = new CANNON.Sphere(radius);
-        } else if (geometry instanceof THREE.CylinderGeometry) {
-            // For cylinder geometry, use Cylinder shape
-            const params = geometry.parameters;
-            shape = new CANNON.Cylinder(
-                params.radiusTop * worldScale.x,
-                params.radiusBottom * worldScale.x,
-                params.height * worldScale.y,
-                params.radialSegments
-            );
-        } else {
-            // For complex geometry, use Trimesh (convex polyhedron)
-            // Note: Trimesh is less performant but works for arbitrary shapes
-            const vertices = geometry.attributes.position.array as Float32Array;
-            const indices = geometry.index ? geometry.index.array as Uint32Array : undefined;
-            
-            if (indices && indices.length > 0) {
-                // Use Trimesh for indexed geometry
-                const cannonVertices = [];
-                for (let i = 0; i < vertices.length; i += 3) {
-                    cannonVertices.push(
-                        vertices[i] * worldScale.x,
-                        vertices[i + 1] * worldScale.y, 
-                        vertices[i + 2] * worldScale.z
-                    );
-                }
-                
-                shape = new CANNON.Trimesh(cannonVertices, Array.from(indices));
-            } else {
-                console.warn('Complex mesh without indices, using simplified collision');
-                // Fallback to bounding box
-                geometry.computeBoundingBox();
-                const box = geometry.boundingBox!;
-                const size = new THREE.Vector3();
-                box.getSize(size);
-                size.multiply(worldScale);
-                
-                shape = new CANNON.Box(new CANNON.Vec3(
-                    size.x / 2,
-                    size.y / 2,
-                    size.z / 2
-                ));
-            }
-        }
-
-        // Create static body
-        const body = new CANNON.Body({
-            type: CANNON.Body.STATIC,
-            shape: shape,
-            position: new CANNON.Vec3(
-                worldPosition.x,
-                worldPosition.y,
-                worldPosition.z
-            ),
-            quaternion: new CANNON.Quaternion(
-                worldQuaternion.x,
-                worldQuaternion.y, 
-                worldQuaternion.z,
-                worldQuaternion.w
-            )
-        });
-
-        // Add body to physics world and store reference
-        world.addBody(body);
-        //this.levelBodies.push(body);
-        
-        console.log(`Added static collision body for mesh: ${mesh.name || 'unnamed'}`);
-    }
-
-
- function createFloorStaticBodyFromMesh(mesh: THREE.Mesh): void {
-    const FLOOR_THICKNESS = 5; // collision thickness (world units)
-
-    if (!mesh.geometry || !mesh.geometry.attributes.position) {
-        console.warn('Mesh has no geometry, skipping collider');
-        return;
-    }
-
-    // Ensure bounding box exists
-    mesh.geometry.computeBoundingBox();
-    const bbox = mesh.geometry.boundingBox;
-    if (!bbox) return;
-
-    // Decompose world transform
-    const worldPosition = new THREE.Vector3(0,0,0);
-    const worldQuaternion = new THREE.Quaternion();
-    const worldScale = new THREE.Vector3();
-
-    mesh.updateWorldMatrix(true, false);
-    mesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
-
-    // Get scaled size of the mesh
-    const size = new THREE.Vector3();
-    bbox.getSize(size);
-    size.multiply(worldScale);
-
-    // Create thick box collider
-    const halfExtents = new CANNON.Vec3(
-        size.x / 2,
-        FLOOR_THICKNESS / 2,
-        size.z / 2
-    );
-
-    const shape = new CANNON.Box(halfExtents);
-
-    // Lower collider so top matches mesh surface
-    const bodyPosition = new CANNON.Vec3(
-        worldPosition.x,
-        worldPosition.y - FLOOR_THICKNESS / 2,
-        worldPosition.z
-    );
-
-    const body = new CANNON.Body({
-        type: CANNON.Body.STATIC,
-        shape,
-        position: bodyPosition,
-        quaternion: new CANNON.Quaternion(
-            worldQuaternion.x,
-            worldQuaternion.y,
-            worldQuaternion.z,
-            worldQuaternion.w
-        )
-    });
-
-    world.addBody(body);
-
-    console.log(`✅ Thick floor collider created for: ${mesh.name || 'unnamed'}`);
-}
-   
 
 
 
@@ -567,11 +276,16 @@ function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
  */
 function animate() {
     requestAnimationFrame(animate);
-    input();
-    updatephysicsv3();
-    syncCarGraphics(); //temporarily disabled for debugging
+    //input();
+
+
+    // this should be mapped to settings
+    world.step(1/60); // simulate the world physics at 60 fps
+    PlayerCar.physicsUpdate();
+
     syncAngelGraphics();
-    updateCamera();
+
+    // debug the 3d collisions physics visually
     if (DEBUG){
         cannonDebugger.update();
     }

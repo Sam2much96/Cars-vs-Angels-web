@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { uiStore } from "./ui-score";
-import "./react-gta-style.css"; // duplicate of styles.css
+
 
 
 export default function UI() {

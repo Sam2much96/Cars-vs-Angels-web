@@ -1,3 +1,20 @@
+/**
+ * 
+ * 
+ * 
+ * Inputs
+ * 
+ * Features:
+ * (1) captures button inputss
+ * (2) captures swipe inputs
+ * 
+ * to do:
+ * 
+ * (1) 
+ */
+
+
+
 import * as CANNON from "cannon-es";
 import * as THREE from 'three';
 
@@ -37,16 +54,18 @@ export function input(){
      * 
      * To Do:
      * (1) decouple code base
+     * (2) Implement Touch UI  for touch mobile buttons
+     * 
      * 
      * Bugs:
      * (1) Screen touch input is buggy
+     * (2) input function should only register the player input and has no business applying force to the vehicle object
      * 
      */
     // capture input
-    if (!window.Vehicle.vehicle) return;
-    if (!window.Vehicle.carBody) return;
+    if (!window.Vehicle.vehicle || !window.Vehicle.carBody) return;
 
-    const GRAVITY = window.world.gravity.y;
+    const GRAVITY = window.Vehicle.gravity;//window.world.gravity.y;
 
 
 
@@ -54,15 +73,33 @@ export function input(){
     
     // Keybindings
     // Add force on keydown
+
+/**
+ * 
+ * 
+ * document.addEventListener('keydown', e => {})
+document.addEventListener('keyup', e => {})
+document.addEventListener('mousemove', e => {})
+document.addEventListener('mousedown', e => {})
+document.addEventListener('mouseup', e => {})
+
+
+
+
+
+ * 
+ * 
+ */
+
     document.addEventListener('keydown', (event) => {
           switch (event.key) {
             case 'w':
             case 'ArrowUp':
-                if (GRAVITY == -10){
+                if (GRAVITY === -10){
                 window.Vehicle.vehicle!.applyEngineForce(-window.Vehicle.maxForce, 2)
                 window.Vehicle.vehicle!.applyEngineForce(-window.Vehicle.maxForce, 3)
                  }
-                else if (GRAVITY == 0){
+                else if (GRAVITY === 0){
                     // fly forward
                     window.Vehicle.carBody?.applyLocalForce(new CANNON.Vec3(-window.Vehicle.thrust, 0, 0), new CANNON.Vec3(0, 0, 0));
                 }
@@ -71,7 +108,7 @@ export function input(){
 
             case 's':
             case 'ArrowDown':
-                if (GRAVITY == -10){
+                if (GRAVITY === -10){
                 window.Vehicle.vehicle?.applyEngineForce(window.Vehicle.maxForce, 2)
                 window.Vehicle.vehicle?.applyEngineForce(window.Vehicle.maxForce, 3)
                 }
@@ -82,22 +119,22 @@ export function input(){
 
             case 'a':
             case 'ArrowLeft':
-                if (GRAVITY == -10){
+                if (GRAVITY === -10){
                window.Vehicle.vehicle?.setSteeringValue(window.Vehicle.maxSteerVal, 0)
                window.Vehicle.vehicle?.setSteeringValue(window.Vehicle.maxSteerVal, 1)
                }
-               else if (GRAVITY == 0){
+               else if (GRAVITY === 0){
                 window.Vehicle.carBody!.angularVelocity.y += window.Vehicle.turn;
                }
               break
 
             case 'd':
             case 'ArrowRight':
-                if (GRAVITY == -10){
+                if (GRAVITY === -10){
                window.Vehicle.vehicle?.setSteeringValue(-window.Vehicle.maxSteerVal, 0)
                window.Vehicle.vehicle?.setSteeringValue(-window.Vehicle.maxSteerVal, 1)
                 }
-                else if (GRAVITY == 0){
+                else if (GRAVITY === 0){
                     window.Vehicle.carBody!.angularVelocity.y -= window.Vehicle.turn;
                 }
               break
@@ -125,13 +162,13 @@ export function input(){
             case 'w':
             case 'ArrowUp':
                 // ground
-                if (GRAVITY == -10) {
+                if (GRAVITY === -10) {
                 window.Vehicle.vehicle?.applyEngineForce(0, 2)
                 window.Vehicle.vehicle?.applyEngineForce(0, 3)
                 }
 
                 // air
-                else if (GRAVITY == 0) {
+                else if (GRAVITY === 0) {
                     window.Vehicle.carBody?.applyLocalForce(new CANNON.Vec3(0, 0, 0), new CANNON.Vec3(0, 0, 0));
                 }
 
@@ -139,7 +176,7 @@ export function input(){
 
             case 's':
             case 'ArrowDown':
-                if (GRAVITY == -10){
+                if (GRAVITY === -10){
               window.Vehicle.vehicle?.applyEngineForce(0, 2)
               window.Vehicle.vehicle?.applyEngineForce(0, 3)
                 }
@@ -234,7 +271,7 @@ export function input(){
         });
 
         //reset on swipe end
-        hammer.on('swipeend', (ev) => {
+        hammer.on('swipeend', () => {
             if (!window.Vehicle.vehicle) return;
             // Reset steering and engine force
             window.Vehicle.vehicle.setSteeringValue(0, 0);

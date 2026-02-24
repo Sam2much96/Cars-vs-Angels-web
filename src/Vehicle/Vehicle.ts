@@ -5,15 +5,34 @@
  * (1) Uses Cannones raycast vehicle physics to create and control a 3d car simulation
  * 
  * to do:
- * (1) better camera controls
+ * (1) better camera controls (1/3)
  * (2) restart game if car falls off map
- * (3) improved car floating state machine
+ * (3) add mouse camera turns
+ * (4) add vehicle entry and exit using player 3d mesh
+ * (5) fix car tire physics
+ * (6) car lift should be a power up item
+ * (7) optimise vehile mesh textures from 500x500 to < 100x100 in the game's model, to reduce texture size from 1.8 mb to < 500 kb
+ * (8) implement car idle state
+ * (9) implement player interraction with car object
+ * 
+ * bugs:
+ * (1) flight physics is unimplemented
+ * (2) state machine is unimplemented
+ * (3) car physics is applied outside class in inputs function which is bad code responsibility
  */
 
 // for 3d mesh and texture rendering
 import * as THREE from 'three';
 import * as CANNON from "cannon-es";
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+//import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+
+//input 
+
+// input manaager
+import { InputManager } from "../UI/Inputs/InputManager";
+
+
 
 export class Vehicle {
 
@@ -24,6 +43,10 @@ export class Vehicle {
     public vehicle : CANNON.RaycastVehicle | null = null
 
     public carOffset = new THREE.Vector3(0, -0.7, 0);
+
+    // Set the camera offset from the car
+    public cameraOffset = new THREE.Vector3(0, 2.5, -7); // x=side, y=height, z=behind
+
     public meshRotationOffset : THREE.Quaternion
 
     //driving controls
@@ -32,18 +55,28 @@ export class Vehicle {
     public brakeForce = 1000000
 
     // flying controls
-    public thrust = 100; // forward/back
+    public thrust = 5000; // forward/back
     public lift = 5000;    // up/down
     public turn = 0.005;   // yaw
 
+    //gravite
+    public gravity : number;
 
-    constructor(scene : THREE.Scene, world: CANNON.World, loader : GLTFLoader){
 
-        //
-        //
-        //
-     
+    //car finite state machine
+    //public STATE_MACHINE: Map<string, number> = new Map([
+    //        ['DRIVING', 0],
+    //        ['FLYING', 1],
+    //        ['IDLE', 2],
+    //        ['ENTER', 3],
+    //        ['EXIT', 4],
+    //        ['DESTROY', 5],
+    //    ]);
 
+    constructor(scene : THREE.Scene = window.scene , world: CANNON.World = window.world, loader = window.loader){
+
+        //gravity
+        this.gravity = world.gravity.y | -10;
 
         // ------------------------------------------------------ 
         // Car offset config for the 3d mesh
@@ -54,6 +87,11 @@ export class Vehicle {
         this.meshRotationOffset = meshRotationOffset;
         
 
+        //input 
+
+        //const canvas = document.getElementById("gameCanvas") as HTMLElement;
+
+        InputManager.initialize(); //canvas
 
 
         /**
@@ -211,6 +249,268 @@ export class Vehicle {
             console.error('CAR LOAD ERROR:', err);
         });
         
+    }
+
+
+    physicsUpdate(): void {
+    {
+    /**
+     * 
+     * Features:
+     * (1) syncs the car mesh with the Collision physics forces
+     * 
+     * bugs:
+     * 
+     * (1) buggy wheel rotation
+     * (2) buggy camera positioning
+     */
+    if (!this.carMesh || !this.carBody || !this.vehicle) return; //guar clause
+
+    // trigger raycast phyiics update
+    this.vehicle.updateVehicle(window.world.dt);
+
+    // update driving gamera 
+    this.updateDrivingCamera(window.camera);
+
+    // Sync chassis
+    this.carMesh.position.copy(this.carBody.position).add(window.Vehicle?.carOffset); // sync car body with physics
+    this.carMesh.quaternion.copy(this.carBody.quaternion).multiply(this.meshRotationOffset); //sync car rotation with colliision
+
+    // Get wheel meshes in correct order: FL, FR, BL, BR
+    const wheelMeshes = [
+        window.Vehicle.carMesh?.getObjectByName("Círculo004"), // FL
+        window.Vehicle.carMesh?.getObjectByName("Círculo005"), // FR
+        window.Vehicle.carMesh?.getObjectByName("Círculo006"), // BL
+        window.Vehicle.carMesh?.getObjectByName("Círculo007"), // BR
+    ];
+
+    // Per-wheel axis correction quaternions
+    // Adjust X/Y/Z based on Blender export
+    const leftWheelCorrection = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
+    );
+    const rightWheelCorrection = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(-Math.PI / 2, Math.PI, 0) // mirror for right side
+    );
+
+    // Sync each wheel
+    this.vehicle?.wheelInfos.forEach((wheel, i) => {
+        const mesh = wheelMeshes[i];
+        if (!mesh) return;
+
+        // Update wheel physics transform
+        window.Vehicle.vehicle?.updateWheelTransform(i);
+        const wt = wheel.worldTransform;
+
+        // Copy position
+        //mesh.position.copy(wt.position);
+
+        // Copy rotation safely
+        const q = new THREE.Quaternion(
+            wt.quaternion.x,
+            wt.quaternion.y,
+            wt.quaternion.z,
+            wt.quaternion.w
+        );
+
+        // Apply per-wheel correction
+        if (i === 0 || i === 2) {
+            // FL / BL
+            q.multiply(leftWheelCorrection);
+        } else {
+            // FR / BR
+            q.multiply(rightWheelCorrection);
+        }
+
+        mesh.quaternion.copy(q);
+    });
+    }
+
+
+
+    // input logic
+    // to do : 
+    // (1) implement driving state and flying state
+    if (InputManager.isKeyDown("KeyW") || InputManager.isKeyDown("ArrowUp")) {
+        if (this.isGravity()){
+            this.State()["ACCELERATE"]();
+        }
+        if (!this.isGravity()){
+            this.State()["THRUST"]();
+        }
+
+    }
+    if (InputManager.isKeyDown("KeyS") || InputManager.isKeyDown("ArrowDown")) {
+        if (this.isGravity()){
+             this.State()["REVERSE"]();
+        }
+        if (!this.isGravity()){
+
+             this.State()["YEW_UP"]();
+        }
+        
+       
+    }
+    if (InputManager.isKeyDown("KeyA") || InputManager.isKeyDown("ArrowLeft")) {
+        if (this.isGravity()){
+            this.State()["STEER_LEFT"]();
+        }
+        if (!this.isGravity()){
+            this.State()["YEW_LEFT"]();
+        }
+        
+    }
+    if (InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight")) {
+        if (this.isGravity()){
+            this.State()["STEER_RIGHT"]();
+        }
+        if (!this.isGravity()){
+            this.State()["YEW_RIGHT"]();
+        }
+        
+    }
+    if (InputManager.isKeyDown("Space")) {
+        this.State()["BRAKE"]();
+    }
+    if (InputManager.isKeyDown("KeyP")) {
+        //toggle gravity on and off
+        this.toggleGravity(false)
+
+        if (!this.isGravity()){
+            this.State()["LIFT"]();
+        }
+        
+    }
+    if (InputManager.isKeyDown("KeyO")) {
+        this.toggleGravity(true);
+    }
+
+    // to do:
+    // (1) port camera/ mouse controls to camera tracking function
+    //const mouseDX = InputManager.getMouseDeltaX();
+    //const mouseDY = InputManager.getMouseDeltaY();
+
+    //window.camera.rotation.y -= mouseDX * 0.002;
+    //window.camera.rotation.x -= mouseDY * 0.002;
+
+    // Reset Input Manager's state
+    InputManager.update();
+
+
+}
+
+
+
+
+    updateDrivingCamera(camera : THREE.PerspectiveCamera): void{
+
+    /**
+     * Update Camera Function
+     * 
+     * bugs:
+     * (1) camera does not look at back of car
+     * (2) camera positioning is buggy
+     * 
+     */
+    if (!this.carBody) return;
+    if (!camera) return;
+
+    // Desired camera position = car position + offset
+    let desiredPosition = new THREE.Vector3().copy(this.carBody.position).add(this.cameraOffset);
+
+    // Smooth camera movement
+    camera.position.lerp(desiredPosition, 0.1);
+
+    // Make camera look slightly ahead of the car for better visibility
+    let lookAtTarget = new THREE.Vector3().copy(this.carBody.position);
+    
+    //lookAtTarget.z -= 5; // Look ahead in the direction the car is facing
+    camera.lookAt(lookAtTarget);
+    }
+
+    toggleGravity(params : boolean){
+        if (!params){
+            this.gravity = 0;
+            //window.world.gravity.set(0, 0, 0);
+        }
+        else if (params){
+            this.gravity = -10
+            //window.world.gravity.set(0, -10, 0);
+        }
+        window.world.gravity.set(0, this.gravity, 0);
+    }
+
+    isGravity(): boolean{
+        if (this.gravity === 0){
+            return false;
+        }
+        if (this.gravity !== 0){
+            return true
+        }
+        else { return false}
+    }
+
+    State(): Record<string, () => void>  {
+    /**
+     * Car vehicle Finine State Machine
+     * @returns 
+     * car state
+     */
+
+        return {
+            "ACCELERATE" : () => {
+
+                // diriving forward
+                this.vehicle!.applyEngineForce(-this.maxForce, 2)
+                this.vehicle!.applyEngineForce(-this.maxForce, 3)
+                
+
+            },
+            "REVERSE":() =>{
+                this.vehicle?.applyEngineForce(this.maxForce, 2)
+                this.vehicle?.applyEngineForce(this.maxForce, 3)
+            },
+            "STEER_LEFT":() =>{
+                this.vehicle?.setSteeringValue(this.maxSteerVal, 0)
+                this.vehicle?.setSteeringValue(this.maxSteerVal, 1)
+            },
+            "STEER_RIGHT":() =>{
+
+                this.vehicle?.setSteeringValue(-this.maxSteerVal, 0)
+                this.vehicle?.setSteeringValue(-this.maxSteerVal, 1)
+            },
+            "BRAKE":() =>{
+                this.vehicle?.setBrake(this.brakeForce, 0)
+               this.vehicle?.setBrake(this.brakeForce, 1)
+               this.vehicle?.setBrake(this.brakeForce, 2)
+               this.vehicle?.setBrake(this.brakeForce, 3)
+            },
+            "LIFT":() =>{
+
+                this.carBody?.applyLocalForce(new CANNON.Vec3(0, this.lift, 0), new CANNON.Vec3(0, 0, 0));
+                //return
+            },
+
+            "THRUST" : () => {
+
+                // fly forward
+                // does not work
+                this.carBody!.applyLocalForce(new CANNON.Vec3(-this.thrust, 0, 0), new CANNON.Vec3(0, 0, 0));
+            },
+            "YEW_LEFT" :() =>{
+                // flight controls steer left
+                this.carBody!.angularVelocity.y += this.turn;
+            },
+            "YEW_RIGHT" :() => {
+                // flight controls steer right
+                this.carBody!.angularVelocity.y -= this.turn;
+            },
+            "YEW_UP" :() => {
+                // flight controls steer right
+                this.carBody!.angularVelocity.z -= this.turn;
+            }
+        
+        }
     }
 }
 
