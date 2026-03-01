@@ -1,5 +1,6 @@
 // src/globals.d.ts
 import type { Vehicle } from './src/Vehicle/Vehicle';
+import {Human} from "./src/Characters/Human";
 import type { Enemy } from "./src/Characters/Enemy";
 import type { Music } from './src/Music/Music';
 import type * as THREE from 'three';
@@ -10,6 +11,7 @@ declare global {
   interface Window {
     Vehicle: Vehicle;
     Angel: Enemy;
+    player : Human;
     music: Music;
     scene: THREE.Scene;
     world: CANNON.World;

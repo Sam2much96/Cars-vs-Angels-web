@@ -16,9 +16,9 @@
  * (9) implement player interraction with car object
  * 
  * bugs:
- * (1) flight physics is unimplemented
- * (2) state machine is unimplemented
- * (3) car physics is applied outside class in inputs function which is bad code responsibility
+ * (1) 
+ * (2) 
+ * (3) 
  */
 
 // for 3d mesh and texture rendering
@@ -266,6 +266,19 @@ export class Vehicle {
      */
     if (!this.carMesh || !this.carBody || !this.vehicle) return; //guar clause
 
+
+                    // second despawn logic for falling off 3d map
+                //
+                // to do: port this respawn code to the Vehicle object
+                //if (this.playerBody.position.y < -20){
+                //    this.despawn();
+                //    this.State()["STATE_DEATH"]();
+                //    return;
+                //}
+
+
+
+
     // trigger raycast phyiics update
     this.vehicle.updateVehicle(window.world.dt);
 
@@ -330,7 +343,7 @@ export class Vehicle {
 
     // input logic
     // to do : 
-    // (1) implement driving state and flying state
+    // (1) implement driving state and flying state (done)
     if (InputManager.isKeyDown("KeyW") || InputManager.isKeyDown("ArrowUp")) {
         if (this.isGravity()){
             this.State()["ACCELERATE"]();
@@ -384,6 +397,8 @@ export class Vehicle {
     if (InputManager.isKeyDown("KeyO")) {
         this.toggleGravity(true);
     }
+
+
 
     // to do:
     // (1) port camera/ mouse controls to camera tracking function
@@ -493,8 +508,6 @@ export class Vehicle {
 
             "THRUST" : () => {
 
-                // fly forward
-                // does not work
                 this.carBody!.applyLocalForce(new CANNON.Vec3(-this.thrust, 0, 0), new CANNON.Vec3(0, 0, 0));
             },
             "YEW_LEFT" :() =>{
@@ -508,7 +521,9 @@ export class Vehicle {
             "YEW_UP" :() => {
                 // flight controls steer right
                 this.carBody!.angularVelocity.z -= this.turn;
-            }
+            },
+            "DESTROY" :() => {},
+            "RESPAWN" :()=> {}
         
         }
     }

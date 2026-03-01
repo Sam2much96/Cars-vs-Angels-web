@@ -2,8 +2,8 @@
  * Main game logic 
  * 
  * to do: 
- * (1) implement react UI
- * (2) implement threejs shader for enemy character object
+ * (1) implement player character
+ * (2) implement threejs simple material shader for enemy character object glow
  * (3)  * (4) implement static physics for the world environment and buildings (1/3)
  * (5) add music and sfx (1/2)
  * (6) 
@@ -13,11 +13,11 @@
  * (10) 
  * (11) organise code blocs into various classes and scripts for easier programming  
  * (12) implement texturing in world level
- * (13) implement cash and mission system
- * (14) organise source code into classes for easier readability
+ * (13) implement cash and mission system (1/2)
+ * (14) 
  * (15) implement hdr and weather system
  * (16) port material data into threejs and depreciate material image usage
- * (17) replace howlerjs with zzfxm and zzfx
+ * (17) 
  * (18) 
  *  (19) desccribe differnt game states & enumerations for each of the differnt hdr's
  * (20) create gem /cash items that despawn and also increase your cash balance
@@ -50,7 +50,8 @@ import CannonDebugger from 'cannon-es-debugger';
 import './src/UI/ui-mount.tsx';  // mounts the React UI
 import { uiStore } from './src/UI/ui-score'; // globals database for UI
 
-
+// input manaager
+import { InputManager } from "./src/UI/Inputs/InputManager";
 
 // Music singleton
 import { Music } from './src/Music/Music';
@@ -63,6 +64,9 @@ import {Rock} from "./src/props/rocks"
 import {Gem} from "./src/props/gem";
 import {Terrain} from "./src/Level/ground";
 import {Buildings} from "./src/Level/buildings";
+import {Human} from "./src/Characters/Human";
+import {Dragon} from "./src/Characters/Dragon";
+import {Bird} from "./src/Characters/Bird";
 
 
 import { syncAngelGraphics } from './syncGraphics.ts';
@@ -75,11 +79,13 @@ declare global {
     interface Window {
         Vehicle: Vehicle,
         Angel : Enemy,
+        player : Human,
         music : Music,
         scene :THREE.Scene, //global 3js scene pointer
         world : CANNON.World, // cannon es physics world pointer
         loader : GLTFLoader,
         camera : THREE.PerspectiveCamera, // global pointer to camera
+
     }
 }
 
@@ -94,26 +100,26 @@ uiStore.setHealth(75);
 
 
 
-// ------------------------------------------------------
-// LOADERS
-// ------------------------------------------------------
-
-//const loader = new GLTFLoader();
-
-// ------------------------------------------------------
-// Input
-// ------------------------------------------------------
-
-
-
-
-
 
 // ------------------------------------------------------
 // Music & SFX
 // ------------------------------------------------------
 window.music = new Music();
-window.music.play();
+// Call this inside a click/keypress handler
+document.addEventListener('click', () => {
+    window.music.play();
+}, { once: true });
+
+document.addEventListener("visibilitychange", async () => {
+            if (document.hidden){
+                window.music.togglePause();
+            }
+            else {
+                window.music.togglePause();
+            }
+        
+        })
+
 
 
 
@@ -121,7 +127,7 @@ window.music.play();
 // ------------------------------------------------------
 // Overall Level Debug
 // ------------------------------------------------------
-const DEBUG = true;
+const DEBUG = false;
 
 
 // ------------------------------------------------------
@@ -129,7 +135,7 @@ const DEBUG = true;
 // ------------------------------------------------------
 
 window.scene = new THREE.Scene();
-//window.scene = scene;
+
 
  
 
@@ -190,8 +196,13 @@ console.log("HDR environment loaded (HDRLoader)!");
 // ------------------------------------------------------
 window.scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+const dirLight = new THREE.DirectionalLight(0xffffff, 5);
 dirLight.position.set(5, 10, 5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+
+
 window.scene.add(dirLight);
 
 
@@ -211,7 +222,7 @@ world.gravity.set(0, DEFAULT_GRAVITY, 0)
 world.broadphase = new CANNON.SAPBroadphase(world)
 
 // Disable friction by default
-world.defaultContactMaterial.friction = 0
+world.defaultContactMaterial.friction = 10
 
 const cannonDebugger = CannonDebugger(window.scene, world);
 
@@ -221,6 +232,8 @@ const cannonDebugger = CannonDebugger(window.scene, world);
 // ------------------------------------------------------
 // LOADERS
 // ------------------------------------------------------
+// very important
+// sets the loader for all 3d scenes & objects
 
 window.loader = new GLTFLoader();
 
@@ -235,8 +248,9 @@ const buildings = new Buildings();
 // ------------------------------------------------------
 // Vehicle
 // ------------------------------------------------------
-const PlayerCar = new Vehicle();
-window.Vehicle = PlayerCar;
+// temporarily disabled for refactoring
+
+//window.Vehicle = new Vehicle(); 
 
 
 
@@ -247,19 +261,14 @@ window.Angel = new Enemy();
 
 
 // testing 3d game items
-const testing_1 = new Rock();
-const testing_2 = new Gem();
+// temporarily disabled
+//const testing_1 = new Rock();
+//const testing_2 = new Gem();
 
 
-
-
-
-
-
-
-
-
-
+window.player = new Human(); // works
+const clock = new THREE.Clock();
+//const testing_4 = new Dragon();
 
 
 
@@ -273,15 +282,24 @@ const testing_2 = new Gem();
  * (3) sync the game physics by copying physics data onto the 3d meshes
  * (4) sync the camera to follow the car object
  * (5) visually debug the world physics if needed
+ * (6) simulate the world physics in 60 fps
  */
 function animate() {
     requestAnimationFrame(animate);
     //input();
 
+    const delta = clock.getDelta();
+    // to do: (1) this should be mapped to settings ui
+    world.step(1/60, delta,3); // simulate the world physics at 60 fps
+    
+    //PlayerCar.physicsUpdate();
+    if (window.Vehicle){
+        window.Vehicle.physicsUpdate();
+    }
 
-    // this should be mapped to settings
-    world.step(1/60); // simulate the world physics at 60 fps
-    PlayerCar.physicsUpdate();
+    if (window.player){
+        window.player.update(delta);
+    }
 
     syncAngelGraphics();
 

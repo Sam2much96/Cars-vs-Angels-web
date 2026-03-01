@@ -28,6 +28,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "public/audio/zzfxm-worklet.js", "globals.d.ts", "globals.d.ts"],
+  "include": ["src", "globals.d.ts", "globals.d.ts"],
   "exclude": ["node_modules"]
 }

@@ -1,7 +1,12 @@
 /**
  * Input Manager
  * Professional keyboard & mouse input system for 3D games
+ * 
+ * to do:
+ * (1) add mobile controls for touch screens
  */
+
+
 
 export class InputManager {
 
@@ -228,5 +233,5 @@ export class InputManager {
 
 }
 
-
+//
 //InputManager.initialize(canvas);
