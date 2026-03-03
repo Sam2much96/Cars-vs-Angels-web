@@ -1,15 +1,27 @@
+/**
+ * 
+ * 
+ * New Music script:
+ * Features:
+ * (1) no dependencies
+ * (2) uses howlerjs for sfx
+ * 
+ */
+
 export class Music {
+    public enable : boolean = true;
     private audio: HTMLAudioElement | null = null;
     private currentIndex: number = 0;
 
     private playlist: string[] = [
         "/audio/songs/yekm_gta_sa_2.ogg",
         // add more tracks here:
-        "/audio/songs/beaach sex chike san 2.ogg",
+        //"/audio/songs/beaach sex chike san 2.ogg",
         // "/audio/songs/track3.ogg",
     ];
 
     async play(url?: string): Promise<void> {
+        if (!this.enable) return;
         // if a specific url is passed, find it in the playlist or start from it
         if (url) {
             const index = this.playlist.indexOf(url);

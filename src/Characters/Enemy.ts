@@ -115,6 +115,14 @@ export class Enemy {
         //}
     }
     
+    physicsProcess(){
+        // sync angel mesh's position and rotation to the collision object's position & rotation
+        if (!window.Angel || !window.Angel.body) return;
+        window.Angel.AngelMesh?.position.copy(window.Angel.body.position);
+        window.Angel.AngelMesh?.quaternion.copy(window.Angel.body.quaternion);
+
+    }
+
     State(): Record<string, () => void>  {
     /**
      * Car vehicle Finine State Machine

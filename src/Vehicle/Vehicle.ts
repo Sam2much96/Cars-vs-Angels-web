@@ -17,7 +17,7 @@
  * (10) implement music only playing once player interracts with car
  * 
  * bugs:
- * (1) 
+ * (1) vehicle weight is too light, add more mass and compensate with increased energy thrust
  * (2) 
  * (3) 
  */
@@ -28,7 +28,8 @@ import * as CANNON from "cannon-es";
 //import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 
-//input 
+//Human object
+import { Human } from '../Characters/Human';
 
 // input manaager
 import { InputManager } from "../UI/Inputs/InputManager";
@@ -37,7 +38,7 @@ import { InputManager } from "../UI/Inputs/InputManager";
 
 export class Vehicle {
 
-
+    public isDriving : boolean = false;
     
     public carMesh: THREE.Object3D | null = null;
     public carBody: CANNON.Body | null = null;
@@ -143,7 +144,7 @@ export class Vehicle {
             // 1. Create chassis body
             const chassisShape = new CANNON.Box(new CANNON.Vec3(3.9, 0.3, 1.6)); // half-extents
             const chassisBody = new CANNON.Body({ 
-                mass: 2500, 
+                mass: 2_000, 
                 position: new CANNON.Vec3(0, 2, 0), // set car collision above the citymap terrain
                 angularVelocity: new CANNON.Vec3(0,0.5,0),
                 angularDamping: 0.5,
@@ -240,7 +241,17 @@ export class Vehicle {
             
             // Save to global so controls can access it
             this.vehicle = vehicle;
+
+
+            //  hit collision detection
+              // listen for collisions from only the Vehicle object class
+            this.carBody.addEventListener('collide', (e: Human) => {
+                //const otherBody = e.carBody as CANNON.Body;
+                console.log('Enemy collided with vehicle:', e);
+                this.onCollide();
+            });
         
+
             console.log("Dodge Charger loaded with raycast vehicle physics!");
             console.log("Dodge Charger loaded with raycast vehicle physics!");
             console.log("Vehicle object:", vehicle);
@@ -250,6 +261,11 @@ export class Vehicle {
             console.error('CAR LOAD ERROR:', err);
         });
         
+    }
+
+    onCollide(){
+        console.log("Vehicle Collided with Human object debugger");
+        window.player?.linkVehicle(this);
     }
 
 
@@ -265,11 +281,11 @@ export class Vehicle {
      * (1) buggy wheel rotation
      * (2) buggy camera positioning
      */
-    if (!this.carMesh || !this.carBody || !this.vehicle) return; //guar clause
+    if (!this.carMesh || !this.carBody || !this.vehicle ) return; //guar clause
 
 
                     // second despawn logic for falling off 3d map
-                //
+                // should check for global health instead
                 // to do: port this respawn code to the Vehicle object
                 //if (this.playerBody.position.y < -20){
                 //    this.despawn();
@@ -284,7 +300,7 @@ export class Vehicle {
     this.vehicle.updateVehicle(window.world.dt);
 
     // update driving gamera 
-    this.updateDrivingCamera(window.camera);
+    if (this.isDriving )this.updateDrivingCameraV1(window.camera);
 
     // Sync chassis
     this.carMesh.position.copy(this.carBody.position).add(window.Vehicle?.carOffset); // sync car body with physics
@@ -341,65 +357,69 @@ export class Vehicle {
     }
 
 
+    // driving controller
+    if (this.isDriving){
+        // input logic
+        // to do : 
+        // (1) implement driving state and flying state (done)
+        if (InputManager.isKeyDown("KeyW") || InputManager.isKeyDown("ArrowUp")) {
+            if (this.isGravity()){
+                this.State()["ACCELERATE"]();
+            }
+            if (!this.isGravity()){
+                this.State()["THRUST"]();
+            }
 
-    // input logic
-    // to do : 
-    // (1) implement driving state and flying state (done)
-    if (InputManager.isKeyDown("KeyW") || InputManager.isKeyDown("ArrowUp")) {
-        if (this.isGravity()){
-            this.State()["ACCELERATE"]();
         }
-        if (!this.isGravity()){
-            this.State()["THRUST"]();
-        }
+        if (InputManager.isKeyDown("KeyS") || InputManager.isKeyDown("ArrowDown")) {
+            if (this.isGravity()){
+                this.State()["REVERSE"]();
+            }
+            if (!this.isGravity()){
 
-    }
-    if (InputManager.isKeyDown("KeyS") || InputManager.isKeyDown("ArrowDown")) {
-        if (this.isGravity()){
-             this.State()["REVERSE"]();
-        }
-        if (!this.isGravity()){
-
-             this.State()["YEW_UP"]();
-        }
+                this.State()["YEW_UP"]();
+            }
+            
         
-       
-    }
-    if (InputManager.isKeyDown("KeyA") || InputManager.isKeyDown("ArrowLeft")) {
-        if (this.isGravity()){
-            this.State()["STEER_LEFT"]();
         }
-        if (!this.isGravity()){
-            this.State()["YEW_LEFT"]();
+        if (InputManager.isKeyDown("KeyA") || InputManager.isKeyDown("ArrowLeft")) {
+            if (this.isGravity()){
+                this.State()["STEER_LEFT"]();
+            }
+            if (!this.isGravity()){
+                this.State()["YEW_LEFT"]();
+            }
+            
         }
-        
-    }
-    if (InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight")) {
-        if (this.isGravity()){
-            this.State()["STEER_RIGHT"]();
+        if (InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight")) {
+            if (this.isGravity()){
+                this.State()["STEER_RIGHT"]();
+            }
+            if (!this.isGravity()){
+                this.State()["YEW_RIGHT"]();
+            }
+            
         }
-        if (!this.isGravity()){
-            this.State()["YEW_RIGHT"]();
+        if (InputManager.isKeyDown("Space")) {
+            this.State()["BRAKE"]();
         }
-        
-    }
-    if (InputManager.isKeyDown("Space")) {
-        this.State()["BRAKE"]();
-    }
-    if (InputManager.isKeyDown("KeyP")) {
-        //toggle gravity on and off
-        this.toggleGravity(false)
+        if (InputManager.isKeyDown("KeyP")) {
+            //toggle gravity on and off
+            this.toggleGravity(false)
 
-        if (!this.isGravity()){
-            this.State()["LIFT"]();
+            if (!this.isGravity()){
+                this.State()["LIFT"]();
+            }
+            
         }
-        
-    }
-    if (InputManager.isKeyDown("KeyO")) {
-        this.toggleGravity(true);
-    }
+        if (InputManager.isKeyDown("KeyO")) {
+            this.toggleGravity(true);
+        }
 
 
+    // Reset Input Manager's state
+    InputManager.update();
+    }
 
     // to do:
     // (1) port camera/ mouse controls to camera tracking function
@@ -409,8 +429,6 @@ export class Vehicle {
     //window.camera.rotation.y -= mouseDX * 0.002;
     //window.camera.rotation.x -= mouseDY * 0.002;
 
-    // Reset Input Manager's state
-    InputManager.update();
 
 
 }
@@ -418,7 +436,7 @@ export class Vehicle {
 
 
 
-    updateDrivingCamera(camera : THREE.PerspectiveCamera): void{
+    updateDrivingCameraV1(camera : THREE.PerspectiveCamera): void{
 
     /**
      * Update Camera Function
@@ -428,8 +446,8 @@ export class Vehicle {
      * (2) camera positioning is buggy
      * 
      */
-    if (!this.carBody) return;
-    if (!camera) return;
+    if (!this.carBody || !camera || !this.isDriving) return;
+    
 
     // Desired camera position = car position + offset
     let desiredPosition = new THREE.Vector3().copy(this.carBody.position).add(this.cameraOffset);

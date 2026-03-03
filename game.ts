@@ -6,10 +6,10 @@
  * (2) implement threejs simple material shader for enemy character object glow
  * (3)  * (4) implement static physics for the world environment and buildings (1/3)
  * (5) add music and sfx (1/2)
- * (6) 
+ * (6) add an inventory system
  * (7) add money models + collisions
  * (8) add npc sprites with navigation ai
- * (9) add angel model enemy object (1/3)
+ * (9) add angel model enemy object (2/3)
  * (10) 
  * (11) organise code blocs into various classes and scripts for easier programming  
  * (12) implement texturing in world level
@@ -17,8 +17,8 @@
  * (14) 
  * (15) implement hdr and weather system
  * (16) port material data into threejs and depreciate material image usage
- * (17) 
- * (18) 
+ * (17) add a dialogue system
+ * (18) add a day/ night cycle
  *  (19) desccribe differnt game states & enumerations for each of the differnt hdr's
  * (20) create gem /cash items that despawn and also increase your cash balance
  * 
@@ -69,7 +69,10 @@ import {Dragon} from "./src/Characters/Dragon";
 import {Bird} from "./src/Characters/Bird";
 
 
-import { syncAngelGraphics } from './syncGraphics.ts';
+// to do: (1) depreciate this into a process code bloc in the angel object
+//import { syncAngelGraphics } from './syncGraphics.ts';
+
+import { initializeGameMonetizeAds } from './Ads';
 
 // ------------------------------------------------------
 // GLOBALS
@@ -106,9 +109,9 @@ uiStore.setHealth(75);
 // ------------------------------------------------------
 window.music = new Music();
 // Call this inside a click/keypress handler
-document.addEventListener('click', () => {
-    window.music.play();
-}, { once: true });
+//document.addEventListener('click', () => {
+//    window.music.play();
+//}, { once: true });
 
 document.addEventListener("visibilitychange", async () => {
             if (document.hidden){
@@ -121,13 +124,35 @@ document.addEventListener("visibilitychange", async () => {
         })
 
 
+// ------------------------------------------------------
+// Advertisising : Game Monetize
+// ------------------------------------------------------
+
+initializeGameMonetizeAds(
+  '01bsf4imoujpniyvppnz89kgh6tyl6nb',
+  () => {
+    // Pause game logic
+    // Mute audio
+    console.log('Game paused for ad');
+
+  },
+  () => {
+    // Resume game logic
+    // Unmute audio
+    console.log('Game resumed after ad');
+  },
+  () => {
+    // Optional: Additional logic when SDK is ready
+    console.log('SDK ready callback');
+  }
+);
 
 
 
 // ------------------------------------------------------
 // Overall Level Debug
 // ------------------------------------------------------
-const DEBUG = false;
+const DEBUG = true;
 
 
 // ------------------------------------------------------
@@ -250,7 +275,7 @@ const buildings = new Buildings();
 // ------------------------------------------------------
 // temporarily disabled for refactoring
 
-//window.Vehicle = new Vehicle(); 
+window.Vehicle = new Vehicle(); 
 
 
 
@@ -265,8 +290,10 @@ window.Angel = new Enemy();
 //const testing_1 = new Rock();
 //const testing_2 = new Gem();
 
-
+// temporarily disabled for refactoring March 1, 2026
 window.player = new Human(); // works
+
+
 const clock = new THREE.Clock();
 //const testing_4 = new Dragon();
 
@@ -290,8 +317,8 @@ function animate() {
 
     const delta = clock.getDelta();
     // to do: (1) this should be mapped to settings ui
-    world.step(1/60, delta,3); // simulate the world physics at 60 fps
-    
+    //world.step(1/60, delta,3); // simulate the world physics at 60 fps
+    world.step(1/60);
     //PlayerCar.physicsUpdate();
     if (window.Vehicle){
         window.Vehicle.physicsUpdate();
@@ -301,7 +328,9 @@ function animate() {
         window.player.update(delta);
     }
 
-    syncAngelGraphics();
+    if (window.Angel){
+        window.Angel.physicsProcess();
+    }
 
     // debug the 3d collisions physics visually
     if (DEBUG){

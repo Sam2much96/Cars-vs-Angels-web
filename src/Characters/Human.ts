@@ -4,6 +4,10 @@ import * as CANNON from 'cannon-es';
 // input manaager
 import { InputManager } from "../UI/Inputs/InputManager";
 
+import { Vehicle } from "../Vehicle/Vehicle"; // adjust path as needed
+
+
+
 /**
  * 
  * 
@@ -24,7 +28,13 @@ import { InputManager } from "../UI/Inputs/InputManager";
  * to do :
  * (1) write a simple state machine (done)
  * (2) add object interractivity with vehicle body
+ * (3) reuse this mesh as multiple NPC scenes
+ * (4) test vehicle and human object collisions
+ * (5) when entering vehicle the collision shhould be disabled
+ * (6) when exiting vehicle, the mesh should be made visible
  * 
+ * bugs:
+ * (1) gravity doesn't work on human object when exiting vehicle
  * 
  */
 export class Human {
@@ -35,6 +45,10 @@ export class Human {
     public playerAnims: THREE.AnimationMixer | null = null;
     clips: THREE.AnimationClip[] = [];
     currentAction: THREE.AnimationAction | null = null;
+
+    // vehicle interractions    
+    private vehicle: Vehicle | null = null; 
+    private isDriving: boolean = false;
     
     constructor(loader = window.loader, scene = window.scene, world = window.world) {
 
@@ -119,7 +133,7 @@ export class Human {
         );
 
         // Spawn position
-        body.position.set(0, 1, 0);
+        body.position.set(10, 1, 0);
 
         return body;
     }
@@ -159,24 +173,105 @@ export class Human {
         const a = InputManager.isKeyDown("KeyA") || InputManager.isKeyDown("ArrowLeft");
         const d = InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight");
 
+
+        const e = InputManager.isKeyDown("KeyE");
+
+        let interract = e;
+
         const moving = w || s || a || d;
 
-        if (moving) {
+        if (moving && !this.isDriving) {
             this.playAnimation("Run Anime");
             this.State()["STATE_WALKING"](w, s, a, d);
         }
-        else {
+
+        if (moving && this.isDriving){
+            //this.playAnimation("Sitting_Idle_loop");
+            return
+        }
+
+        if (interract && !this.isDriving){
+
+            //console.log("Interract triggered for vehicle collision: ", this.vehicle);
+            //if (!this.isDriving) {
+                console.log("try enter vehicle triggered");
+                interract = false;
+                this.State()["ENTER_VEHICLE"]();
+            //} //else {
+            //    console.log("try exit vehicle triggered");
+            //    this._exitVehicle();
+            //}
+
+        }
+
+        if (interract && this.isDriving){
+             //           if (this.isDriving){
+                console.log("try exit vehicle");
+                this._exitVehicle();
+                interract = false;
+            //}
+        }
+
+        if(!moving) {
             this.playAnimation("Idle_Loop");
         }
 
         this.syncGraphics();
+        
+    }
+
+    linkVehicle(vehicle: Vehicle): void {
+        /**
+         * 
+         * links the current vehicle object to the class upon collision with it
+         * 
+         */
+        console.log("linking vehicle");
+        // adds a vehicle reference to this object
+        this.vehicle = vehicle;
     }
 
 
 
+    _exitVehicle(){
+        console.log("exit vehicle")
+         if (!this.vehicle?.carBody || !this.body || !this.mesh) return;
+
+        this.isDriving = false;
+        this.vehicle.isDriving = false;
+        this.mesh.visible = true;
+        this.vehicle.toggleGravity(true);
+
+        // Re-enable human physics
+        this.body.type = CANNON.Body.DYNAMIC;
+
+        // Drop the player beside the car (offset on the left side)
+        const carPos = this.vehicle.carBody.position;
+        const exitOffset = new CANNON.Vec3(-3, 0.5, 0); // left-door position
+        this.body.position.set(
+            carPos.x + exitOffset.x,
+            carPos.y + exitOffset.y,
+            carPos.z + exitOffset.z
+        );
+        this.body.velocity.set(0, 0, 0);
+
+        // Wake body so gravity applies immediately
+        this.body.wakeUp();
+
+        this.playAnimation("Sitting_Exit");
+
+        console.log("Player exited vehicle");
+    }
+
+
      syncGraphics(){
             //apply cannon-es physics to mesh
-            if (this.body && this.mesh){
+            if (!this.body || !this.mesh  ) return
+
+            // walking controls
+            if (!this.isDriving){
+                // toggle mesh visibility
+                if (!this.mesh.visible) this.mesh.visible;
 
                 // apply physics mesh to player
                 this.mesh.position.set(
@@ -212,6 +307,16 @@ export class Human {
                 // Look at the player
                 window.camera.lookAt(playerPos);
 
+            }
+
+            // driving controls
+            if (this.isDriving){
+
+                // copy
+                //this.body.position.copy(this.vehicle?.carBody?.position!)
+                this.mesh.position.copy(this.vehicle?.carBody?.position!)
+                
+                if (this.mesh.visible) this.mesh.visible = false
             }
     }
 
@@ -294,6 +399,24 @@ export class Human {
 
                 
             },
+
+            "ENTER_VEHICLE" : () => {
+                if (!this.vehicle?.carBody || !this.body) return;
+                console.log(" Try enter vehicle :", this.vehicle);
+                this.isDriving = true;
+                // // Freeze the human physics body so it doesn't fall while seated
+                this.body!.type     = CANNON.Body.STATIC;
+                this.body!.velocity.set(0, 0, 0);
+                this.body!.angularVelocity.set(0, 0, 0);
+
+                this.playAnimation("Sitting_Enter");
+
+                this.vehicle.isDriving = true;
+                window.music.play(); // ← plays once when player enters car
+
+                // to do : play car sitting animation
+                // console.log("Player entered vehicle");
+            }
         
         }}
 }
