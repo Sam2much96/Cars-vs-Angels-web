@@ -14,6 +14,7 @@
  * (7) optimise vehile mesh textures from 500x500 to < 100x100 in the game's model, to reduce texture size from 1.8 mb to < 500 kb
  * (8) implement car idle state
  * (9) implement player interraction with car object
+ * (10) implement music only playing once player interracts with car
  * 
  * bugs:
  * (1) 
