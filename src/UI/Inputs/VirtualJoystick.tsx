@@ -15,9 +15,6 @@ export class VirtualJoystick {
     private static currentX = 0;
     private static currentY = 0;
 
-    private static lastTapTime = 0;
-    private static _doubleTapCallback: (() => void) | null = null;
-
 
     // Mouse-sim state (PC debugging)
     private static mouseSimActive = false;

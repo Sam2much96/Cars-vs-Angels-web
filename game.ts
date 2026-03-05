@@ -51,7 +51,8 @@ import './src/UI/ui-mount.tsx';  // mounts the React UI
 import { uiStore } from './src/UI/ui-score'; // globals database for UI
 
 // input manaager
-import { InputManager } from "./src/UI/Inputs/InputManager";
+//import { InputManager } from "./src/UI/Inputs/InputManager";
+import { DayNightCycle } from './src/Level/Daynightcycle.ts';
 
 // Music singleton
 import { Music } from './src/Music/Music';
@@ -203,23 +204,26 @@ window.addEventListener('resize', () => {
 const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
 
-const HDRloader = new HDRLoader();
-const envMap = await HDRloader.loadAsync("mud_road_puresky_1k.hdr");
-envMap.mapping = THREE.EquirectangularReflectionMapping;
-window.scene.environment = envMap; // reflections
-window.scene.background = envMap; //skybox 
+//const HDRloader = new HDRLoader();
+//const envMap = await HDRloader.loadAsync("autumn_field_puresky_1k.hdr");
+//envMap.mapping = THREE.EquirectangularReflectionMapping;
+//window.scene.environment = envMap; // reflections
+//window.scene.background = envMap; //skybox 
 
-window.scene.fog = new THREE.Fog(new THREE.Color().setHex(0x87ceeb), 100, 1000); // Add fog for distance
+//window.scene.fog = new THREE.Fog(new THREE.Color().setHex(0x87ceeb), 100, 1000); // Add fog for distance
 
-console.log("HDR environment loaded (HDRLoader)!");
 
+//console.log("HDR environment loaded (HDRLoader)!");
 
 
 
 // ------------------------------------------------------ 
 // Lights
 // ------------------------------------------------------
-window.scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.5)
+window.scene.add(ambientLight);
+
+
 
 const dirLight = new THREE.DirectionalLight(0xffffff, 5);
 dirLight.position.set(5, 10, 5);
@@ -230,7 +234,9 @@ dirLight.shadow.mapSize.height = 2048;
 
 window.scene.add(dirLight);
 
-
+const cycle = new DayNightCycle(window.scene, dirLight, ambientLight, renderer);
+await cycle.loadHDRs(); 
+cycle.dayDuration = 300; // 5 real minutes = 1 game day, tune this freely
 
 
 // ------------------------------------------------------
@@ -318,6 +324,8 @@ function animate() {
     const delta = clock.getDelta();
     // to do: (1) this should be mapped to settings ui
     //world.step(1/60, delta,3); // simulate the world physics at 60 fps
+
+    cycle.update(delta); // ← add this line
     world.step(1/60);
     //PlayerCar.physicsUpdate();
     if (window.Vehicle){
