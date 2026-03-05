@@ -8,6 +8,8 @@
  * (1) stores weapon and items inventory
  * (2) connects to the react ui to display an inventory and the current active item
  * (3) connects with the Human character to show item use in 3d animation
+ * (4) stores game's cash data
+ * (5) stores game's health data
  */
 
 

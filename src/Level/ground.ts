@@ -127,7 +127,7 @@ loader.load('./ground_mesh.glb', (gltf) => {
 
     world.addBody(body);
 
-    console.log(`✅ Thick floor collider created for: ${mesh.name || 'unnamed'}`);
+    console.log(`Thick floor collider created for: ${mesh.name || 'unnamed'}`);
 }
    
 
@@ -137,7 +137,7 @@ loader.load('./ground_mesh.glb', (gltf) => {
 * Create a Cannon-es static body from a Three.js mesh
 * @param mesh - Three.js mesh to convert to collision body
 */
-function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
+export function createStaticBodyFromMesh(mesh: THREE.Mesh): void {
         // ignore Landscape001 mesh, that is for the toonshader
         //if (mesh.name === "Landscape001"){
         //    return

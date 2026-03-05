@@ -13,57 +13,103 @@
  * (3) add a gta 3 style mouse icon
  * 
  */
-
 import { useState, useEffect } from "react";
 //import { uiStore } from "./ui-score";
 import { Inventory } from "./Inventory/Inventory";
+import { VirtualJoystickOverlay } from '../UI/Inputs/VirtualJoystick.tsx';
+import { VirtualButton } from '../UI/Inputs/VirtualButton.tsx';
 
-
-const inventory =new Inventory();
+const inventory = new Inventory();
 
 export default function UI() {
 
-  const [cash, setCash] = useState<number>(inventory.cash);
-  const [health, setHealth] = useState<number>(inventory.health);
+    const [cash,      setCash]      = useState<number>(inventory.cash);
+    const [health,    setHealth]    = useState<number>(inventory.health);
+    const [inVehicle, setInVehicle] = useState<boolean>(false);
 
     useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail.cash !== undefined) setCash(detail.cash);
-      if (detail.health !== undefined) setHealth(detail.health);
+    const onEnter = () => {
+        console.log("vehicle-enter received in UI"); // does this log?
+        setInVehicle(true);
     };
-    window.addEventListener('ui-update', handler);
-    return () => window.removeEventListener('ui-update', handler);
-  }, []);
+    const onExit = () => {
+        console.log("vehicle-exit received in UI");
+        setInVehicle(false);
+    };
 
+    window.addEventListener("vehicle-enter", onEnter);
+    window.addEventListener("vehicle-exit",  onExit);
 
+    return () => {
+        window.removeEventListener("vehicle-enter", onEnter);
+        window.removeEventListener("vehicle-exit",  onExit);
+    };
+}, []);
 
-  const getTimeString = (): string => {
-    const now = new Date();
-    return [
-      now.getHours().toString().padStart(2, "0"),
-      now.getMinutes().toString().padStart(2, "0"),
-      now.getSeconds().toString().padStart(2, "0"),
-    ].join(":");
-  };
+    // ── inventory / health updates ──────────────────────────────
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail.cash   !== undefined) setCash(detail.cash);
+            if (detail.health !== undefined) setHealth(detail.health);
+        };
+        window.addEventListener('ui-update', handler);
+        return () => window.removeEventListener('ui-update', handler);
+    }, []);
 
-  const [time, setTime] = useState<string>(getTimeString);
+    // ── vehicle enter / exit ────────────────────────────────────
+    useEffect(() => {
+        const onEnter = () => setInVehicle(true);
+        const onExit  = () => setInVehicle(false);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(getTimeString());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+        window.addEventListener("vehicle-enter", onEnter);
+        window.addEventListener("vehicle-exit",  onExit);
 
-  return (
-    <>
-      
-      <div id="clock">{time}</div>
-      <div id="cash">${cash.toLocaleString()}</div>
-      <div id="health">❤ {health}</div>
-    </>
-  );
+        return () => {
+            window.removeEventListener("vehicle-enter", onEnter);
+            window.removeEventListener("vehicle-exit",  onExit);
+        };
+    }, []);
+
+    // ── clock ───────────────────────────────────────────────────
+    const getTimeString = (): string => {
+        const now = new Date();
+        return [
+            now.getHours()  .toString().padStart(2, "0"),
+            now.getMinutes().toString().padStart(2, "0"),
+            now.getSeconds().toString().padStart(2, "0"),
+        ].join(":");
+    };
+
+    const [time, setTime] = useState<string>(getTimeString);
+
+    useEffect(() => {
+        const interval = setInterval(() => setTime(getTimeString()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // ── button handlers ─────────────────────────────────────────
+    const handleInteract   = () => window.dispatchEvent(new CustomEvent("player-interact"));
+    const handleGravityOff = () => window.dispatchEvent(new CustomEvent("vehicle-gravity-off"));
+    const handleGravityOn  = () => window.dispatchEvent(new CustomEvent("vehicle-gravity-on"));
+
+    // ── render ──────────────────────────────────────────────────
+    return (
+        <>
+            <div id="clock">{time}</div>
+            <div id="cash">${cash.toLocaleString()}</div>
+            <div id="health">❤ {health}</div>
+
+            <VirtualJoystickOverlay />
+
+            <VirtualButton label="Enter" onClick={handleInteract} />
+
+            {inVehicle && (
+                <>
+                    <VirtualButton label="Fly"  onClick={handleGravityOff} bottom="160px" right="60px"  />
+                    <VirtualButton label="Land" onClick={handleGravityOn}  bottom="160px" right="150px" />
+                </>
+            )}
+        </>
+    );
 }
-
-

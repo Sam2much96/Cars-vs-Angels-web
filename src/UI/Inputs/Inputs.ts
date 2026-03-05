@@ -4,6 +4,8 @@
  * 
  * Inputs
  * 
+ * Depreciated Input Class
+ * 
  * Features:
  * (1) captures button inputss
  * (2) captures swipe inputs
@@ -43,6 +45,10 @@ export class Input{
      */
 
 };
+/**
+ * 
+ * 
+ */
 
 export function input(){
     /**

@@ -127,7 +127,7 @@ document.addEventListener("visibilitychange", async () => {
 // ------------------------------------------------------
 // Advertisising : Game Monetize
 // ------------------------------------------------------
-
+/**
 initializeGameMonetizeAds(
   '01bsf4imoujpniyvppnz89kgh6tyl6nb',
   () => {
@@ -147,7 +147,7 @@ initializeGameMonetizeAds(
   }
 );
 
-
+ */
 
 // ------------------------------------------------------
 // Overall Level Debug

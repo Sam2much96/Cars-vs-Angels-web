@@ -1,72 +1,150 @@
 /**
- * 
- * 
- * New Music script:
+ * Music
  * Features:
  * (1) no dependencies
- * (2) uses howlerjs for sfx
- * 
+ * (2) graceful handling of browser-aborted play requests
  */
 
 export class Music {
-    public enable : boolean = true;
+
+    public enable: boolean = true;
+
     private audio: HTMLAudioElement | null = null;
     private currentIndex: number = 0;
 
     private playlist: string[] = [
         "/audio/songs/yekm_gta_sa_2.ogg",
-        // add more tracks here:
-        //"/audio/songs/beaach sex chike san 2.ogg",
-        // "/audio/songs/track3.ogg",
+        "/audio/songs/beaach sex chike san 2.ogg"
     ];
 
+    // --------------------------------------------------
+    // Public API
+    // --------------------------------------------------
+
     async play(url?: string): Promise<void> {
+
         if (!this.enable) return;
-        // if a specific url is passed, find it in the playlist or start from it
+
         if (url) {
             const index = this.playlist.indexOf(url);
             this.currentIndex = index !== -1 ? index : 0;
         }
 
-        this.stop();
+        // Cleanly tear down the previous element before creating a new one.
+        // This prevents the "aborted by user agent" DOMException that fires when
+        // pause() interrupts an in-flight load/play promise.
+        await this.stopAsync();
 
-        this.audio = new Audio(this.playlist[this.currentIndex]);
-        this.audio.loop = false; // manual cycling instead of looping
-        this.audio.volume = 1.0;
+        const audio = new Audio(this.playlist[this.currentIndex]);
+        audio.loop = false;
+        audio.volume = 1.0;
 
-        // when track ends, automatically play the next one
-        this.audio.addEventListener('ended', () => {
-            this.nextTrack();
-        });
+        audio.addEventListener("ended", () => this.nextTrack());
 
-        await this.audio.play();
-        console.log("Now playing:", this.playlist[this.currentIndex]);
-    }
+        this.audio = audio;
 
-    private async nextTrack(): Promise<void> {
-        this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
-        await this.play();
+        try {
+
+            await audio.play();
+            console.log("Now playing:", this.playlist[this.currentIndex]);
+
+        } catch (err) {
+
+            // AbortError   – element was replaced before playback could start (harmless)
+            // NotAllowedError – browser blocked autoplay before a user gesture
+            if (err instanceof DOMException) {
+
+                if (err.name === "AbortError") {
+                    // Silently ignore — a newer play() call superseded this one
+                    return;
+                }
+
+                if (err.name === "NotAllowedError") {
+                    console.warn("Music: playback blocked until a user gesture has occurred.");
+                    return;
+                }
+
+            }
+
+            // Re-throw anything unexpected
+            throw err;
+
+        }
+
     }
 
     stop(): void {
-        this.audio?.pause();
+
+        if (!this.audio) return;
+
+        // Remove the src before pausing so the browser doesn't fire an
+        // "interrupted" abort error on the pending play() promise.
+        const audio = this.audio;
         this.audio = null;
+
+        audio.pause();
+        audio.src = "";     // releases the media resource immediately
+        audio.load();       // resets the element to the "empty" network state
+
     }
 
     togglePause(): void {
+
         if (!this.audio) return;
+
         this.audio.paused ? this.audio.play() : this.audio.pause();
+
     }
 
     setVolume(volume: number): void {
-        if (this.audio) this.audio.volume = volume / 100;
+
+        if (this.audio) this.audio.volume = Math.max(0, Math.min(1, volume / 100));
+
     }
 
     addTrack(url: string): void {
+
         this.playlist.push(url);
+
     }
 
     getCurrentTrack(): string {
+
         return this.playlist[this.currentIndex];
+
     }
+
+    // --------------------------------------------------
+    // Internal helpers
+    // --------------------------------------------------
+
+    /**
+     * Async-safe stop: pauses, clears src, and yields one microtask tick so
+     * any in-flight play() promise has a chance to settle before we discard
+     * the element. This prevents the AbortError on rapid play() calls.
+     */
+    private async stopAsync(): Promise<void> {
+
+        if (!this.audio) return;
+
+        const audio = this.audio;
+        this.audio = null;
+
+        audio.pause();
+        audio.src = "";
+        audio.load();
+
+        // One microtask tick — lets the browser resolve the aborted promise
+        // before we create a brand-new Audio element on top of it.
+        await Promise.resolve();
+
+    }
+
+    private async nextTrack(): Promise<void> {
+
+        this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
+        await this.play();
+
+    }
+
 }

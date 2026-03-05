@@ -33,12 +33,24 @@ import { Human } from '../Characters/Human';
 
 // input manaager
 import { InputManager } from "../UI/Inputs/InputManager";
-
+import { VirtualJoystick } from '../UI/Inputs/VirtualJoystick.tsx';
 
 
 export class Vehicle {
 
-    public isDriving : boolean = false;
+    public _isDriving : boolean = false;
+
+    get isDriving(): boolean {
+        return this._isDriving;
+    }
+
+    set isDriving(value: boolean) {
+        this._isDriving = value;
+        console.log("isDriving set to:", value); // does this log?
+        const event = new CustomEvent(value ? "vehicle-enter" : "vehicle-exit");
+        console.log("dispatching event:", event.type); // does this log?
+        window.dispatchEvent(event);
+    }
     
     public carMesh: THREE.Object3D | null = null;
     public carBody: CANNON.Body | null = null;
@@ -64,16 +76,7 @@ export class Vehicle {
     //gravite
     public gravity : number;
 
-
-    //car finite state machine
-    //public STATE_MACHINE: Map<string, number> = new Map([
-    //        ['DRIVING', 0],
-    //        ['FLYING', 1],
-    //        ['IDLE', 2],
-    //        ['ENTER', 3],
-    //        ['EXIT', 4],
-    //        ['DESTROY', 5],
-    //    ]);
+    
 
     constructor(scene : THREE.Scene = window.scene , world: CANNON.World = window.world, loader = window.loader){
 
@@ -91,9 +94,19 @@ export class Vehicle {
 
         //input 
 
-        //const canvas = document.getElementById("gameCanvas") as HTMLElement;
-
         InputManager.initialize(); //canvas
+        window.addEventListener("vehicle-gravity-off", () => {
+            if (!this.isDriving) return;
+            this.toggleGravity(false);
+            if (!this.isGravity()) {
+                this.State()["LIFT"]();
+            }
+        });
+
+        window.addEventListener("vehicle-gravity-on", () => {
+            if (!this.isDriving) return;
+            this.toggleGravity(true);
+        });
 
 
         /**
@@ -358,68 +371,70 @@ export class Vehicle {
 
 
     // driving controller
-    if (this.isDriving){
-        // input logic
-        // to do : 
-        // (1) implement driving state and flying state (done)
-        if (InputManager.isKeyDown("KeyW") || InputManager.isKeyDown("ArrowUp")) {
-            if (this.isGravity()){
-                this.State()["ACCELERATE"]();
-            }
-            if (!this.isGravity()){
-                this.State()["THRUST"]();
-            }
+ if (this.isDriving) {
+    const axis = VirtualJoystick.getAxis();
 
+    if (InputManager.isKeyDown("KeyW") || InputManager.isKeyDown("ArrowUp") || axis.y < -0.2) {
+        if (this.isGravity()) {
+            this.State()["ACCELERATE"]();
         }
-        if (InputManager.isKeyDown("KeyS") || InputManager.isKeyDown("ArrowDown")) {
-            if (this.isGravity()){
-                this.State()["REVERSE"]();
-            }
-            if (!this.isGravity()){
+        if (!this.isGravity()) {
+            this.State()["THRUST"]();
+        }
+    }
+    if (InputManager.isKeyDown("KeyS") || InputManager.isKeyDown("ArrowDown") || axis.y > 0.2) {
+        if (this.isGravity()) {
+            this.State()["REVERSE"]();
+        }
+        if (!this.isGravity()) {
+            this.State()["YEW_UP"]();
+        }
+    }
+    if (InputManager.isKeyDown("KeyA") || InputManager.isKeyDown("ArrowLeft") || axis.x < -0.2) {
+        if (this.isGravity()) {
+            this.State()["STEER_LEFT"]();
+        }
+        if (!this.isGravity()) {
+            this.State()["YEW_LEFT"]();
+        }
+    }
+    if (InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight") || axis.x > 0.2) {
+        if (this.isGravity()) {
+            this.State()["STEER_RIGHT"]();
+        }
+        if (!this.isGravity()) {
+            this.State()["YEW_RIGHT"]();
+        }
+    }
+    if (InputManager.isKeyDown("Space")) {
+        this.State()["BRAKE"]();
+    }
+    if (InputManager.isKeyDown("KeyP")) {
+        // toggle gravity on and off
+        this.toggleGravity(false);
+        if (!this.isGravity()) {
+            this.State()["LIFT"]();
+        }
+    }
+    if (InputManager.isKeyDown("KeyO")) {
+        this.toggleGravity(true);
+    }
 
-                this.State()["YEW_UP"]();
-            }
-            
-        
-        }
-        if (InputManager.isKeyDown("KeyA") || InputManager.isKeyDown("ArrowLeft")) {
-            if (this.isGravity()){
-                this.State()["STEER_LEFT"]();
-            }
-            if (!this.isGravity()){
-                this.State()["YEW_LEFT"]();
-            }
-            
-        }
-        if (InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight")) {
-            if (this.isGravity()){
-                this.State()["STEER_RIGHT"]();
-            }
-            if (!this.isGravity()){
-                this.State()["YEW_RIGHT"]();
-            }
-            
-        }
-        if (InputManager.isKeyDown("Space")) {
-            this.State()["BRAKE"]();
-        }
-        if (InputManager.isKeyDown("KeyP")) {
-            //toggle gravity on and off
-            this.toggleGravity(false)
-
-            if (!this.isGravity()){
-                this.State()["LIFT"]();
-            }
-            
-        }
-        if (InputManager.isKeyDown("KeyO")) {
-            this.toggleGravity(true);
-        }
-
+    // Reset engine/steering when joystick is released
+    if (!InputManager.isKeyDown("KeyW") && !InputManager.isKeyDown("ArrowUp") && axis.y >= -0.2
+     && !InputManager.isKeyDown("KeyS") && !InputManager.isKeyDown("ArrowDown") && axis.y <= 0.2) {
+        this.vehicle?.applyEngineForce(0, 2);
+        this.vehicle?.applyEngineForce(0, 3);
+    }
+    if (!InputManager.isKeyDown("KeyA") && !InputManager.isKeyDown("ArrowLeft") && axis.x >= -0.2
+     && !InputManager.isKeyDown("KeyD") && !InputManager.isKeyDown("ArrowRight") && axis.x <= 0.2) {
+        this.vehicle?.setSteeringValue(0, 0);
+        this.vehicle?.setSteeringValue(0, 1);
+    }
 
     // Reset Input Manager's state
     InputManager.update();
-    }
+}
 
     // to do:
     // (1) port camera/ mouse controls to camera tracking function
@@ -432,7 +447,6 @@ export class Vehicle {
 
 
 }
-
 
 
 
@@ -546,6 +560,8 @@ export class Vehicle {
         
         }
     }
+
+
 }
 
 

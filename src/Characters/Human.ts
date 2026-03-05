@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 // input manaager
 import { InputManager } from "../UI/Inputs/InputManager";
+import { VirtualJoystick } from '../UI/Inputs/VirtualJoystick.tsx';
 
 import { Vehicle } from "../Vehicle/Vehicle"; // adjust path as needed
 
@@ -32,9 +33,15 @@ import { Vehicle } from "../Vehicle/Vehicle"; // adjust path as needed
  * (4) test vehicle and human object collisions
  * (5) when entering vehicle the collision shhould be disabled
  * (6) when exiting vehicle, the mesh should be made visible
+ * (7) write code for getting the player's current height and triggering the fall animation
+ * (8) add jump and attack animations
  * 
  * bugs:
  * (1) gravity doesn't work on human object when exiting vehicle
+ * (2) pressing e always teleports the player to the car position
+ * (3) falling from high heights does'nt trigger the falling animation or the game's death logic
+ * (4) player's gravity is floaty
+ * (5)
  * 
  */
 export class Human {
@@ -55,8 +62,10 @@ export class Human {
         this.mesh = null;
         this.body = null;
         this.world = world;
+        
 
         InputManager.initialize(); //canvas
+        
 
         loader.load('./man_maniquin.glb', (gltf) => {
             // Temporarily log them after loading
@@ -174,15 +183,34 @@ export class Human {
         const d = InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight");
 
 
-        const e = InputManager.isKeyDown("KeyE");
+        let interract = InputManager.isKeyDown("KeyE");
+        const space = InputManager.isKeyDown("SPACE")
 
-        let interract = e;
+        const axis = VirtualJoystick.getAxis();
 
-        const moving = w || s || a || d;
+        //let interract = e;
+        let jump = space;
+
+        const moving = w || s || a || d || VirtualJoystick.isActive();
+
+        // connects to the virual button in the UI
+        window.addEventListener("player-interact", () => {
+            
+            if (!this.isDriving){
+                console.log("player interract triggered in Human");
+                this.State()["ENTER_VEHICLE"]();
+                return
+            }
+            if (this.isDriving){
+                this.State()["EXIT_VEHICLE"]();
+            }
+            
+        });
 
         if (moving && !this.isDriving) {
+            
             this.playAnimation("Run Anime");
-            this.State()["STATE_WALKING"](w, s, a, d);
+            this.State()["STATE_WALKING"](w, s, a, d, axis);
         }
 
         if (moving && this.isDriving){
@@ -192,28 +220,26 @@ export class Human {
 
         if (interract && !this.isDriving){
 
-            //console.log("Interract triggered for vehicle collision: ", this.vehicle);
-            //if (!this.isDriving) {
-                console.log("try enter vehicle triggered");
-                interract = false;
-                this.State()["ENTER_VEHICLE"]();
-            //} //else {
-            //    console.log("try exit vehicle triggered");
-            //    this._exitVehicle();
-            //}
+            console.log("try enter vehicle triggered");
+            interract = false;
+            this.State()["ENTER_VEHICLE"]();
 
         }
 
         if (interract && this.isDriving){
-             //           if (this.isDriving){
-                console.log("try exit vehicle");
-                this._exitVehicle();
-                interract = false;
-            //}
+            console.log("try exit vehicle");
+            this.State()["EXIT_VEHICLE"]();
+            interract = false;
         }
 
         if(!moving) {
             this.playAnimation("Idle_Loop");
+        }
+        if (jump){
+            console.log("jump action triggered");
+            // logic
+            // (1) play jump animation
+            // (2) simulate jump on collision mesh
         }
 
         this.syncGraphics();
@@ -233,35 +259,7 @@ export class Human {
 
 
 
-    _exitVehicle(){
-        console.log("exit vehicle")
-         if (!this.vehicle?.carBody || !this.body || !this.mesh) return;
-
-        this.isDriving = false;
-        this.vehicle.isDriving = false;
-        this.mesh.visible = true;
-        this.vehicle.toggleGravity(true);
-
-        // Re-enable human physics
-        this.body.type = CANNON.Body.DYNAMIC;
-
-        // Drop the player beside the car (offset on the left side)
-        const carPos = this.vehicle.carBody.position;
-        const exitOffset = new CANNON.Vec3(-3, 0.5, 0); // left-door position
-        this.body.position.set(
-            carPos.x + exitOffset.x,
-            carPos.y + exitOffset.y,
-            carPos.z + exitOffset.z
-        );
-        this.body.velocity.set(0, 0, 0);
-
-        // Wake body so gravity applies immediately
-        this.body.wakeUp();
-
-        this.playAnimation("Sitting_Exit");
-
-        console.log("Player exited vehicle");
-    }
+  
 
 
      syncGraphics(){
@@ -350,22 +348,19 @@ export class Human {
              * Force is applied via applyLocalForce so linearDamping (0.9)
              * handles deceleration automatically — no manual drag needed.
              */
-            "STATE_WALKING" : (w: boolean, s: boolean, a: boolean, d: boolean) => {
+            "STATE_WALKING" : (w: boolean, s: boolean, a: boolean, d: boolean, axis = { x: 0, y: 0 }) => {
                 if (!this.body || !this.mesh) return;
 
                 const MOVE_SPEED = 80; // world units per second — tune this
 
                 // ── 1. Build a raw input vector (XZ plane) ──────────────────
-                const input = new THREE.Vector3(
-                    (d ? 1 : 0) - (a ? 1 : 0),   // strafe  (+X right, -X left)
-                    0,
-                    (s ? 1 : 0) - (w ? 1 : 0)    // forward (-Z forward in Three.js)
-                );
+                // Keyboard gives binary 1/0, joystick gives analog -1 to 1
+                const inputX = (d ? 1 : 0) - (a ? 1 : 0) || axis.x;
+                const inputZ = (s ? 1 : 0) - (w ? 1 : 0) || axis.y; // joystick Y up = move forward
 
+                const input = new THREE.Vector3(inputX, 0, inputZ);
                 if (input.lengthSq() === 0) return;
-
-                input.normalize(); // diagonal movement isn't faster
-
+                input.normalize();
                 // ── 2. Make movement camera-relative ────────────────────────
                 const camForward = new THREE.Vector3();
                 window.camera.getWorldDirection(camForward);
@@ -403,19 +398,64 @@ export class Human {
             "ENTER_VEHICLE" : () => {
                 if (!this.vehicle?.carBody || !this.body) return;
                 console.log(" Try enter vehicle :", this.vehicle);
+
                 this.isDriving = true;
-                // // Freeze the human physics body so it doesn't fall while seated
-                this.body!.type     = CANNON.Body.STATIC;
-                this.body!.velocity.set(0, 0, 0);
-                this.body!.angularVelocity.set(0, 0, 0);
+
+                // --------------------------------------------------
+                // Disable human collision so the capsule can't push
+                // the car chassis from the inside every physics step.
+                // --------------------------------------------------
+                // Teleport the body far away (simplest, most reliable method).
+                // Cannon-ES collision groups can be unreliable when changed mid-simulation,
+                // so moving the body out of range is the safest option.
+                this.body.position.set(0, -1000, 0);   // park underground, out of physics range
+                this.body.velocity.set(0, 0, 0);
+                this.body.angularVelocity.set(0, 0, 0);
+                this.body.type = CANNON.Body.STATIC;    // prevent gravity pulling it back up
+                this.body.sleep();                      // stop it from being stepped entirely
 
                 this.playAnimation("Sitting_Enter");
 
                 this.vehicle.isDriving = true;
                 window.music.play(); // ← plays once when player enters car
 
-                // to do : play car sitting animation
-                // console.log("Player entered vehicle");
+                console.log("Player entered vehicle");
+            },
+            "EXIT_VEHICLE" : () => {
+                console.log("exit vehicle")
+                if (!this.vehicle?.carBody || !this.body || !this.mesh) return;
+
+                this.isDriving = false;
+                this.vehicle.isDriving = false;
+                this.mesh.visible = true;
+                this.vehicle.toggleGravity(true);
+
+                // --------------------------------------------------
+                // Re-enable human collision
+                // --------------------------------------------------
+                // Restore collision groups so the player interacts with the world again
+                this.body.collisionFilterGroup = 1;  // default group
+                this.body.collisionFilterMask  = -1; // collide with everything
+
+                // Re-enable human physics
+                this.body.type = CANNON.Body.DYNAMIC;
+
+                // Drop the player beside the car (offset on the left side)
+                const carPos = this.vehicle.carBody.position;
+                const exitOffset = new CANNON.Vec3(-6, 0.5, 0); // left-door position
+                this.body.position.set(
+                    carPos.x + exitOffset.x,
+                    carPos.y + exitOffset.y,
+                    carPos.z + exitOffset.z
+                );
+                this.body.velocity.set(0, 0, 0);
+
+                // Wake body so gravity applies immediately
+                this.body.wakeUp();
+
+                this.playAnimation("Sitting_Exit");
+
+                console.log("Player exited vehicle");
             }
         
         }}
