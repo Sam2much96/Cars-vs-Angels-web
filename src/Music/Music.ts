@@ -13,8 +13,7 @@ export class Music {
     private currentIndex: number = 0;
 
     private playlist: string[] = [
-        "/audio/songs/yekm_gta_sa_2.ogg",
-        "/audio/songs/beaach sex chike san 2.ogg"
+        "/audio/songs/yekm_gta_sa_2.mp3",
     ];
 
     // --------------------------------------------------

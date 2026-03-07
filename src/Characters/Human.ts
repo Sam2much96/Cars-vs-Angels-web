@@ -57,6 +57,15 @@ export class Human {
     private vehicle: Vehicle | null = null; 
     private isDriving: boolean = false;
     
+
+    public playerPos = new THREE.Vector3();
+    // Third-person offset relative to player
+    //    ↑X  ↑Y  ↑Z
+    //    - Slightly above (2.5)
+    //    - Slightly behind (6)
+    public cameraOffset = new THREE.Vector3(2, 1.5, 2);// behind
+                
+
     constructor(loader = window.loader, scene = window.scene, world = window.world) {
 
         this.mesh = null;
@@ -99,6 +108,22 @@ export class Human {
         }, undefined, (err) => {
             console.error('CITY LOAD ERROR:', err);
         });
+
+        // connects to the virual button in the UI
+        window.addEventListener("player-interact", () => {
+            
+            if (!this.isDriving){
+                console.log("player interract triggered in Human");
+                this.State()["ENTER_VEHICLE"]();
+                return
+            }
+            if (this.isDriving){
+                this.State()["EXIT_VEHICLE"]();
+            }
+            
+        });
+
+        //window.dispatchEvent(new CustomEvent("human-loaded"));
     }
 
     /**
@@ -193,19 +218,7 @@ export class Human {
 
         const moving = w || s || a || d || VirtualJoystick.isActive();
 
-        // connects to the virual button in the UI
-        window.addEventListener("player-interact", () => {
-            
-            if (!this.isDriving){
-                console.log("player interract triggered in Human");
-                this.State()["ENTER_VEHICLE"]();
-                return
-            }
-            if (this.isDriving){
-                this.State()["EXIT_VEHICLE"]();
-            }
-            
-        });
+
 
         if (moving && !this.isDriving) {
             
@@ -286,24 +299,18 @@ export class Human {
                 // ----------------------------------
                         
                 // Get world position of the player
-                const playerPos = new THREE.Vector3();
-                this.mesh.getWorldPosition(playerPos);
-
-                // Third-person offset relative to player
-                //    ↑X  ↑Y  ↑Z
-                //    - Slightly above (2.5)
-                //    - Slightly behind (6)
-                const cameraOffset = new THREE.Vector3(2, 1.5, 2);// behind
                 
+                this.mesh.getWorldPosition(this.playerPos);
+
                 // top down
                 //new THREE.Vector3(0, 3.4, -2); 
 
 
                 // Apply camera position
-                window.camera.position.copy(playerPos.clone().add(cameraOffset));
+                window.camera.position.copy(this.playerPos.clone().add(this.cameraOffset));
 
                 // Look at the player
-                window.camera.lookAt(playerPos);
+                window.camera.lookAt(this.playerPos);
 
             }
 
@@ -417,7 +424,9 @@ export class Human {
                 this.playAnimation("Sitting_Enter");
 
                 this.vehicle.isDriving = true;
-                window.music.play(); // ← plays once when player enters car
+                
+                // music player disabled for refactoring Mar 6 2026
+                //window.music.play(); // ← plays once when player enters car
 
                 console.log("Player entered vehicle");
             },

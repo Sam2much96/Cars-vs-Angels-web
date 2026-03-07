@@ -1,0 +1,180 @@
+/* ============================================================
+   titlescreen-red.css  —  original dark/red variant
+   Place in: src/UI/styles/titlescreen-red.css
+   ============================================================ */
+
+@font-face {
+    font-family: 'Pricedown';
+    src: url('/PricedownBl-Regular 900.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* ── Root overlay ─────────────────────────────────────────── */
+.title-screen {
+    position:        fixed;
+    inset:           0;
+    z-index:         9999;
+    background-color:#000000;
+    display:         flex;
+    flex-direction:  column;
+    align-items:     center;
+    justify-content: flex-start;
+    padding-top:     6vh;
+    gap:             20px;
+    overflow:        hidden;
+    opacity:         1;
+    transition:      opacity 0.8s ease;
+    /* scanline texture */
+    background-image: repeating-linear-gradient(
+        0deg,
+        rgba(255,255,255,0.013) 0px,
+        rgba(255,255,255,0.013) 1px,
+        transparent 1px,
+        transparent 4px
+    );
+}
+
+/* Red vignette glow from edges */
+.title-screen::after {
+    content:       '';
+    position:      absolute;
+    inset:         0;
+    background:    radial-gradient(ellipse at center, transparent 40%, rgba(180,0,0,0.4) 100%);
+    pointer-events:none;
+    z-index:       0;
+}
+
+.title-screen.fading {
+    opacity: 0;
+}
+
+/* ── Car art — pinned to the bottom, pulsing ─────────────── */
+.title-car-art {
+    position:  absolute;
+    bottom:    -2%;
+    left:      50%;
+    transform: translateX(-50%);
+    width:     min(90vw, 780px);
+    height:    auto;
+    z-index:   1;
+    /* red tint over the car on dark bg */
+    filter:    drop-shadow(0 0 32px rgba(220,30,30,0.5));
+    animation:
+        carSlideIn 1s cubic-bezier(0.22, 1, 0.36, 1) both,
+        carThrob   3s ease-in-out 1s infinite;
+}
+
+/* Ensure logo + throbber sit above everything */
+.title-screen > *:not(.title-car-art) {
+    position: relative;
+    z-index:  2;
+}
+
+/* ── Logo wrapper ─────────────────────────────────────────── */
+.title-logo {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    line-height:    1;
+    gap:            0;
+    animation:      logoBreathe 3s ease-in-out infinite;
+}
+
+/* ── Each word in the title ───────────────────────────────── */
+.title-word {
+    font-family:    'Pricedown', sans-serif;
+    font-size:      clamp(60px, 14vw, 140px);
+    text-transform: uppercase;
+    color:          #ffffff;
+    paint-order:    stroke fill;
+    text-shadow:
+        0 0 40px rgba(220, 30, 30, 0.9),
+        0 0 80px rgba(220, 30, 30, 0.5),
+        4px 4px 0px #8b0000,
+        8px 8px 0px #3a0000;
+    letter-spacing: 0.06em;
+    display:        block;
+}
+
+/* "vs" in bright red */
+.title-word.vs {
+    font-size: clamp(36px, 8vw, 80px);
+    color:     #e81818;
+    margin:    -4px 0;
+    text-shadow:
+        0 0 30px rgba(255, 0, 0, 1),
+        0 0 60px rgba(220, 30, 30, 0.6),
+        3px 3px 0px #5a0000;
+}
+
+/* ── Throbber ─────────────────────────────────────────────── */
+.title-throbber {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    gap:            10px;
+    margin-top:     8px;
+}
+
+.throbber-dots {
+    display:     flex;
+    gap:         12px;
+    align-items: center;
+}
+
+.throbber-dot {
+    width:            11px;
+    height:           11px;
+    border-radius:    50%;
+    background-color: #e81818;
+    box-shadow:
+        0 0 0 2px #5a0000,
+        0 0 10px rgba(220,30,30,0.8);
+    animation: dotThrob 1.2s ease-in-out infinite;
+}
+
+.throbber-dot:nth-child(2) { animation-delay: 0.2s; }
+.throbber-dot:nth-child(3) { animation-delay: 0.4s; }
+
+.throbber-label {
+    font-family:    'Pricedown', sans-serif;
+    font-size:      clamp(11px, 2vw, 15px);
+    color:          #555;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    margin:         0;
+}
+
+/* ── Keyframes ────────────────────────────────────────────── */
+@keyframes dotThrob {
+    0%, 100% { opacity: 1;   transform: scale(1);   }
+    50%       { opacity: 0.2; transform: scale(0.6); }
+}
+
+@keyframes logoBreathe {
+    0%, 100% { transform: scale(1);     letter-spacing: 0.06em; }
+    50%       { transform: scale(1.02); letter-spacing: 0.09em; }
+}
+
+@keyframes carSlideIn {
+    from {
+        opacity:   0;
+        transform: translateX(calc(-50% + 120px));
+    }
+    to {
+        opacity:   1;
+        transform: translateX(-50%);
+    }
+}
+
+@keyframes carThrob {
+    0%, 100% {
+        transform: translateX(-50%) scale(1);
+        filter:    drop-shadow(0 0 32px rgba(220,30,30,0.5));
+    }
+    50% {
+        transform: translateX(-50%) scale(1.04);
+        filter:    drop-shadow(0 0 60px rgba(220,30,30,0.9));
+    }
+}

@@ -76,6 +76,9 @@ export class Vehicle {
     //gravite
     public gravity : number;
 
+    // wheels
+    public leftWheelCorrection : any;
+    public rightWheelCorrection : any
     
 
     constructor(scene : THREE.Scene = window.scene , world: CANNON.World = window.world, loader = window.loader){
@@ -107,6 +110,16 @@ export class Vehicle {
             if (!this.isDriving) return;
             this.toggleGravity(true);
         });
+
+
+            // Per-wheel axis correction quaternions
+        // Adjust X/Y/Z based on Blender export
+        this.leftWheelCorrection = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
+        );
+        this.rightWheelCorrection = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(-Math.PI / 2, Math.PI, 0) // mirror for right side
+        );
 
 
         /**
@@ -274,6 +287,7 @@ export class Vehicle {
             console.error('CAR LOAD ERROR:', err);
         });
         
+        window.dispatchEvent(new CustomEvent("human-loaded"));
     }
 
     onCollide(){
@@ -327,14 +341,6 @@ export class Vehicle {
         window.Vehicle.carMesh?.getObjectByName("Círculo007"), // BR
     ];
 
-    // Per-wheel axis correction quaternions
-    // Adjust X/Y/Z based on Blender export
-    const leftWheelCorrection = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
-    );
-    const rightWheelCorrection = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(-Math.PI / 2, Math.PI, 0) // mirror for right side
-    );
 
     // Sync each wheel
     this.vehicle?.wheelInfos.forEach((wheel, i) => {
@@ -359,10 +365,10 @@ export class Vehicle {
         // Apply per-wheel correction
         if (i === 0 || i === 2) {
             // FL / BL
-            q.multiply(leftWheelCorrection);
+            q.multiply(this.leftWheelCorrection);
         } else {
             // FR / BR
-            q.multiply(rightWheelCorrection);
+            q.multiply(this.rightWheelCorrection);
         }
 
         mesh.quaternion.copy(q);

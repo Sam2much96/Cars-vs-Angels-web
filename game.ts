@@ -153,7 +153,8 @@ initializeGameMonetizeAds(
 // ------------------------------------------------------
 // Overall Level Debug
 // ------------------------------------------------------
-const DEBUG = true;
+// to do: (1) export this setting to a debug UI in controls
+const DEBUG = false;
 
 
 // ------------------------------------------------------
@@ -170,10 +171,7 @@ camera.position.set(0, 5, 6);
 window.camera = camera;
 
 
-const renderer = new THREE.WebGLRenderer({ 
-    antialias: true,
-    logarithmicDepthBuffer: true 
-});
+const renderer = new THREE.WebGLRenderer();
 
 //set up the renderer
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -184,6 +182,9 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+
+// cap pixel ration [optimisation]
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
 
 
 // Handle window resize
@@ -228,8 +229,8 @@ window.scene.add(ambientLight);
 const dirLight = new THREE.DirectionalLight(0xffffff, 5);
 dirLight.position.set(5, 10, 5);
 dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.mapSize.width = 512; //formerly 2048 now 512 for mobile optimisation
+dirLight.shadow.mapSize.height = 512;
 
 
 window.scene.add(dirLight);
@@ -279,8 +280,6 @@ const buildings = new Buildings();
 // ------------------------------------------------------
 // Vehicle
 // ------------------------------------------------------
-// temporarily disabled for refactoring
-
 window.Vehicle = new Vehicle(); 
 
 
@@ -303,7 +302,13 @@ window.player = new Human(); // works
 const clock = new THREE.Clock();
 //const testing_4 = new Dragon();
 
+// detect mobile once outside the loop
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const physicsStep = isMobile ? 1/30 : 1/60;
 
+const targetFPS = isMobile ? 30 : 60;
+const frameInterval = 1000 / targetFPS;
+let lastFrameTime = 0;
 
 
 /**
@@ -315,18 +320,27 @@ const clock = new THREE.Clock();
  * (3) sync the game physics by copying physics data onto the 3d meshes
  * (4) sync the camera to follow the car object
  * (5) visually debug the world physics if needed
- * (6) simulate the world physics in 60 fps
+ * (6) simulate the world physics in 30 fps for mobile, 60 for pc
+ * (7) fps throthling for mobile
  */
-function animate() {
+function animate(timestamp : number = 0) {
     requestAnimationFrame(animate);
-    //input();
 
-    const delta = clock.getDelta();
+    // fps throtling
+    if (timestamp - lastFrameTime < frameInterval) return;
+    lastFrameTime = timestamp;
+    
+
+    let delta = clock.getDelta();
     // to do: (1) this should be mapped to settings ui
     //world.step(1/60, delta,3); // simulate the world physics at 60 fps
 
     cycle.update(delta); // ← add this line
-    world.step(1/60);
+    //world.step(1/60);
+    
+    world.step(physicsStep);
+    //world.step(physicsStep, delta,3);
+    //isMobile ? world.step(1/30) : world.step(1/60);
     //PlayerCar.physicsUpdate();
     if (window.Vehicle){
         window.Vehicle.physicsUpdate();

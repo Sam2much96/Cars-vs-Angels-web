@@ -57,7 +57,7 @@ export function VirtualButton({ label, bottom = "60px", right = "60px", onClick 
                 touchAction:    "none",
                 zIndex:         10,
                 // ✅ fade in/out based on pressed state
-                opacity:        pressed ? 1 : 0.2,
+                opacity:        pressed ? 1 : 0.4,
                 transition:     "opacity 0.15s ease",
             }}
         >

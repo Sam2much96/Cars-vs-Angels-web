@@ -6,18 +6,18 @@
  * (1) GTA style UI in react
  * (2) Shows health and cash as react components
  * (3) usings ui-score.ts as database of health and cash numbers
+ * (4) Title screen that hides once Human.ts finishes loading
  * 
  * to do:
- * (1) add gta style inventory UI
- * (2) add a titlescreen
- * (3) add a gta 3 style mouse icon
+ * (1) add gta style inventory UI (done)
+ * (2) add a gta 3 style mouse icon
  * 
  */
 import { useState, useEffect } from "react";
-//import { uiStore } from "./ui-score";
 import { Inventory } from "./Inventory/Inventory";
 import { VirtualJoystickOverlay } from '../UI/Inputs/VirtualJoystick.tsx';
 import { VirtualButton } from '../UI/Inputs/VirtualButton.tsx';
+import { TitleScreen } from './TitleScreen.tsx';
 
 const inventory = new Inventory();
 
@@ -26,25 +26,6 @@ export default function UI() {
     const [cash,      setCash]      = useState<number>(inventory.cash);
     const [health,    setHealth]    = useState<number>(inventory.health);
     const [inVehicle, setInVehicle] = useState<boolean>(false);
-
-    useEffect(() => {
-    const onEnter = () => {
-        console.log("vehicle-enter received in UI"); // does this log?
-        setInVehicle(true);
-    };
-    const onExit = () => {
-        console.log("vehicle-exit received in UI");
-        setInVehicle(false);
-    };
-
-    window.addEventListener("vehicle-enter", onEnter);
-    window.addEventListener("vehicle-exit",  onExit);
-
-    return () => {
-        window.removeEventListener("vehicle-enter", onEnter);
-        window.removeEventListener("vehicle-exit",  onExit);
-    };
-}, []);
 
     // ── inventory / health updates ──────────────────────────────
     useEffect(() => {
@@ -59,8 +40,14 @@ export default function UI() {
 
     // ── vehicle enter / exit ────────────────────────────────────
     useEffect(() => {
-        const onEnter = () => setInVehicle(true);
-        const onExit  = () => setInVehicle(false);
+        const onEnter = () => {
+            console.log("vehicle-enter received in UI");
+            setInVehicle(true);
+        };
+        const onExit = () => {
+            console.log("vehicle-exit received in UI");
+            setInVehicle(false);
+        };
 
         window.addEventListener("vehicle-enter", onEnter);
         window.addEventListener("vehicle-exit",  onExit);
@@ -96,6 +83,9 @@ export default function UI() {
     // ── render ──────────────────────────────────────────────────
     return (
         <>
+            {/* Title screen — sits above everything, removes itself once Human loads */}
+            <TitleScreen />
+
             <div id="clock">{time}</div>
             <div id="cash">${cash.toLocaleString()}</div>
             <div id="health">❤ {health}</div>
