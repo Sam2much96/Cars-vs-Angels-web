@@ -171,7 +171,7 @@ camera.position.set(0, 5, 6);
 window.camera = camera;
 
 
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({antialias: true});
 
 //set up the renderer
 renderer.outputColorSpace = THREE.SRGBColorSpace;

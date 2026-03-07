@@ -2,30 +2,20 @@
  * TitleScreen.tsx
  * src/UI/TitleScreen.tsx
  *
- * Full-screen title card shown while the game loads.
- * Disappears the moment Human.ts dispatches "human-loaded".
- *
  * ── SETUP ──────────────────────────────────────────────────
- * Add this ONE line to Human.ts at the very end of the
- * loader.load() success callback, after world.addBody(this.body):
+ * Add to Human.ts at the end of loader.load() success callback,
+ * after world.addBody(this.body):
  *
  *   window.dispatchEvent(new CustomEvent("human-loaded"));
  *
- * ── FONT ───────────────────────────────────────────────────
- * Font is loaded from /public/PricedownBl-Regular 900.ttf
- * via titlescreen.css — no extra setup needed.
+ * ── ASSETS in /public ──────────────────────────────────────
+ *   PricedownBl-Regular-900.ttf
+ *   car_art_transparent.png
  * ───────────────────────────────────────────────────────────
  */
 
 import { useState, useEffect } from "react";
-
-// White GTA style
 import "./styles/titlescreen.css";
-
-
-
-// Dark red cinematic style
-//import "./styles/titlescreen-red.css";
 
 type Phase = "visible" | "fading" | "gone";
 
@@ -35,10 +25,8 @@ export function TitleScreen() {
     useEffect(() => {
         const onLoaded = () => {
             setPhase("fading");
-            // Remove from DOM after CSS transition completes (800 ms)
             setTimeout(() => setPhase("gone"), 800);
         };
-
         window.addEventListener("human-loaded", onLoaded, { once: true });
         return () => window.removeEventListener("human-loaded", onLoaded);
     }, []);
@@ -64,6 +52,14 @@ export function TitleScreen() {
                 </div>
                 <p className="throbber-label">Loading</p>
             </div>
+
+            {/* ── Car art — slides in from right, then throbs */}
+            <img
+                className="title-car-art"
+                src="./car_art_transparent.png"
+                alt="Dodge Charger"
+                draggable={false}
+            />
 
         </div>
     );
