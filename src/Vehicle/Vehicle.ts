@@ -80,6 +80,9 @@ export class Vehicle {
     public leftWheelCorrection : any;
     public rightWheelCorrection : any
     
+    public ready: Promise<void>;
+
+    public spawnPoint  = new THREE.Vector3(-19,24,1);
 
     constructor(scene : THREE.Scene = window.scene , world: CANNON.World = window.world, loader = window.loader){
 
@@ -142,152 +145,169 @@ export class Vehicle {
         // ------------------------------------------------------
         // (2) LOAD DODGE CHARGER MODEL
         // ------------------------------------------------------
-        
-        loader.load('./Dodge_Charger.glb', (gltf) => {
-            this.carMesh = gltf.scene;
-            
-            this.carMesh.traverse((child) => {
-                if (child instanceof THREE.Mesh) {
-                    console.log("Mesh found:", child.name);
-                    console.log("Material debug: ",child.material.map); // should NOT be null
-                } 
-            });
-        
-        
-            
-            // Center and scale the model
-            this.carMesh.scale.set(1, 1, 1);
-            this.carMesh.position.set(0, 5, 0);
 
+        this.ready = new Promise((resolve) => {
+        
+        loader.load('./Dodge_Charger.glb', 
             
-            scene.add(this.carMesh);
-        
-        
-            // --------------------------------------------------
-            // CREATE PHYSICS BODY FOR CAR (RAYCAST VEHICLE)
-            // --------------------------------------------------
-        
-            // 1. Create chassis body
-            const chassisShape = new CANNON.Box(new CANNON.Vec3(3.9, 0.3, 1.6)); // half-extents
-            const chassisBody = new CANNON.Body({ 
-                mass: 2_000, 
-                position: new CANNON.Vec3(0, 2, 0), // set car collision above the citymap terrain
-                angularVelocity: new CANNON.Vec3(0,0.5,0),
-                angularDamping: 0.5,
-                linearDamping: 0.01
-            });
-        
-        
-        
-            chassisBody.addShape(chassisShape);
-            world.addBody(chassisBody);
-        
-            // 2. Create Raycast Vehicle
-            const vehicle = new CANNON.RaycastVehicle({
-                chassisBody: chassisBody,
-                indexUpAxis: 1,   // y-axis is up
-                indexRightAxis: 2, // x is right
-                indexForwardAxis: 0 // z is forward
-            });
-        
-            // 3. Add wheels
-               const wheelOptions = {
-                  radius: 0.6,
-                  directionLocal: new CANNON.Vec3(0, -1, 0),
-                  suspensionStiffness: 30,
-                  suspensionRestLength: 0.3,
-                  frictionSlip: 1,
-                  dampingRelaxation: 2.3,
-                  dampingCompression: 4.4,
-                  maxSuspensionForce: 100000,
-                  rollInfluence: 0.01,
-                  axleLocal: new CANNON.Vec3(0, 0, 1),
-                  chassisConnectionPointLocal: new CANNON.Vec3(-1, 0, 1),
-                  maxSuspensionTravel: 0.3,
-                  customSlidingRotationalSpeed: -30,
-                  useCustomSlidingRotationalSpeed: true,
-                }
+                (gltf) => {
+                this.carMesh = gltf.scene;
                 
-        
-                // set the wheel connection points
-                wheelOptions.chassisConnectionPointLocal.set(-1.8, 0, 1.8)
-                vehicle.addWheel(wheelOptions)
-        
-                wheelOptions.chassisConnectionPointLocal.set(-1.8, 0, -1.8)
-                vehicle.addWheel(wheelOptions)
-        
-                wheelOptions.chassisConnectionPointLocal.set(1.8, 0, 1.8)
-                vehicle.addWheel(wheelOptions)
-        
-                wheelOptions.chassisConnectionPointLocal.set(1.8, 0, -1.8)
-                vehicle.addWheel(wheelOptions)
-        
-                vehicle.addToWorld(world)
-        
-        
-               // Add the wheel bodies
-                const wheelBodies: any[] = []
-                const wheelMaterial = new CANNON.Material('wheel')
-                vehicle.wheelInfos.forEach((wheel) => {
-                  const cylinderShape = new CANNON.Cylinder(wheel.radius, wheel.radius, wheel.radius / 2, 20)
-                  const wheelBody = new CANNON.Body({
-                    mass: 0,
-                    material: wheelMaterial,
-                  })
-                  wheelBody.type = CANNON.Body.KINEMATIC
-                  wheelBody.collisionFilterGroup = 0 // turn off collisions
-        
-                  // set wheel collision rotation
-                  const quaternion = new CANNON.Quaternion().setFromEuler(Math.PI / 2, 0, 0) // -Math.PI / 2, 0, 0)
-                 
-                  wheelBody.addShape(cylinderShape, new CANNON.Vec3(), quaternion)
-        
-                  wheelBodies.push(wheelBody)
-                  //demo.addVisual(wheelBody)
-                  world.addBody(wheelBody)
-                })
-        
-                 // Update the wheel collision bodies
-                world.addEventListener('postStep', () => {
-                  for (let i = 0; i < vehicle.wheelInfos.length; i++) {
-                    vehicle.updateWheelTransform(i)
-                    const transform = vehicle.wheelInfos[i].worldTransform
-                    const wheelBody = wheelBodies[i]
-                    wheelBody.position.copy(transform.position)
-                    wheelBody.quaternion.copy(transform.quaternion)
-                  }
-                })
-        
-        
-                 
-        
-        
-            // 5. IMPORTANT: Use the same chassisBody for both vehicle and graphics
-            this.carBody = chassisBody; // Now carBody references the same body used by the vehicle
+                this.carMesh.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        console.log("Mesh found:", child.name);
+                        console.log("Material debug: ",child.material.map); // should NOT be null
+                    } 
+                });
             
-            // Save to global so controls can access it
-            this.vehicle = vehicle;
+            
+                
+                // Center and scale the model
+                this.carMesh.scale.set(1, 1, 1);
+                this.carMesh.position.set(this.spawnPoint.x,this.spawnPoint.y, this.spawnPoint.z);
+
+                
+                scene.add(this.carMesh);
+            
+            
+                // --------------------------------------------------
+                // CREATE PHYSICS BODY FOR CAR (RAYCAST VEHICLE)
+                // --------------------------------------------------
+            
+                // 1. Create chassis body
+                const chassisShape = new CANNON.Box(new CANNON.Vec3(3.9, 0.3, 1.6)); // half-extents
+                const chassisBody = new CANNON.Body({ 
+                    mass: 2_000, 
+                    position: new CANNON.Vec3(this.spawnPoint.x,this.spawnPoint.y, this.spawnPoint.z), // set car collision above the citymap terrain
+                    angularVelocity: new CANNON.Vec3(0,0.5,0),
+                    angularDamping: 0.5,
+                    linearDamping: 0.01
+                });
+            
+            
+            
+                chassisBody.addShape(chassisShape);
+                world.addBody(chassisBody);
+            
+                // 2. Create Raycast Vehicle
+                const vehicle = new CANNON.RaycastVehicle({
+                    chassisBody: chassisBody,
+                    indexUpAxis: 1,   // y-axis is up
+                    indexRightAxis: 2, // x is right
+                    indexForwardAxis: 0 // z is forward
+                });
+            
+                // 3. Add wheels
+                const wheelOptions = {
+                    radius: 0.6,
+                    directionLocal: new CANNON.Vec3(0, -1, 0),
+                    suspensionStiffness: 30,
+                    suspensionRestLength: 0.3,
+                    frictionSlip: 1,
+                    dampingRelaxation: 2.3,
+                    dampingCompression: 4.4,
+                    maxSuspensionForce: 100000,
+                    rollInfluence: 0.01,
+                    axleLocal: new CANNON.Vec3(0, 0, 1),
+                    chassisConnectionPointLocal: new CANNON.Vec3(-1, 0, 1),
+                    maxSuspensionTravel: 0.3,
+                    customSlidingRotationalSpeed: -30,
+                    useCustomSlidingRotationalSpeed: true,
+                    }
+                    
+            
+                    // set the wheel connection points
+                    wheelOptions.chassisConnectionPointLocal.set(-1.8, 0, 1.8)
+                    vehicle.addWheel(wheelOptions)
+            
+                    wheelOptions.chassisConnectionPointLocal.set(-1.8, 0, -1.8)
+                    vehicle.addWheel(wheelOptions)
+            
+                    wheelOptions.chassisConnectionPointLocal.set(1.8, 0, 1.8)
+                    vehicle.addWheel(wheelOptions)
+            
+                    wheelOptions.chassisConnectionPointLocal.set(1.8, 0, -1.8)
+                    vehicle.addWheel(wheelOptions)
+            
+                    vehicle.addToWorld(world)
+            
+            
+                // Add the wheel bodies
+                    const wheelBodies: any[] = []
+                    const wheelMaterial = new CANNON.Material('wheel')
+                    vehicle.wheelInfos.forEach((wheel) => {
+                    const cylinderShape = new CANNON.Cylinder(wheel.radius, wheel.radius, wheel.radius / 2, 20)
+                    const wheelBody = new CANNON.Body({
+                        mass: 0,
+                        material: wheelMaterial,
+                    })
+                    wheelBody.type = CANNON.Body.KINEMATIC
+                    wheelBody.collisionFilterGroup = 0 // turn off collisions
+            
+                    // set wheel collision rotation
+                    const quaternion = new CANNON.Quaternion().setFromEuler(Math.PI / 2, 0, 0) // -Math.PI / 2, 0, 0)
+                    
+                    wheelBody.addShape(cylinderShape, new CANNON.Vec3(), quaternion)
+            
+                    wheelBodies.push(wheelBody)
+                    //demo.addVisual(wheelBody)
+                    world.addBody(wheelBody)
+                    })
+            
+                    // Update the wheel collision bodies
+                    world.addEventListener('postStep', () => {
+                    for (let i = 0; i < vehicle.wheelInfos.length; i++) {
+                        vehicle.updateWheelTransform(i)
+                        const transform = vehicle.wheelInfos[i].worldTransform
+                        const wheelBody = wheelBodies[i]
+                        wheelBody.position.copy(transform.position)
+                        wheelBody.quaternion.copy(transform.quaternion)
+                    }
+                    })
+            
+            
+                    
+            
+            
+                // 5. IMPORTANT: Use the same chassisBody for both vehicle and graphics
+                this.carBody = chassisBody; // Now carBody references the same body used by the vehicle
+                
+                // Save to global so controls can access it
+                this.vehicle = vehicle;
 
 
-            //  hit collision detection
-              // listen for collisions from only the Vehicle object class
-            this.carBody.addEventListener('collide', (e: Human) => {
-                //const otherBody = e.carBody as CANNON.Body;
-                console.log('Enemy collided with vehicle:', e);
-                this.onCollide();
-            });
+                //  hit collision detection
+                // listen for collisions from only the Vehicle object class
+                this.carBody.addEventListener('collide', (e: Human) => {
+                    //const otherBody = e.carBody as CANNON.Body;
+                    console.log('Enemy collided with vehicle:', e);
+                    this.onCollide();
+                });
+            
+
+                console.log("Dodge Charger loaded with raycast vehicle physics!");
+                console.log("Dodge Charger loaded with raycast vehicle physics!");
+                console.log("Vehicle object:", vehicle);
+                console.log("Chassis body:", chassisBody);
+                console.log("Number of wheels:", vehicle.wheelInfos.length);
+
+                resolve();
+
+            
+                }, 
+                (progress) => {
+                    const percent = Math.round((progress.loaded / progress.total) * 100);
+                    window.dispatchEvent(new CustomEvent("load-progress", {
+                    detail: { percent, label: "Loading vehicle..." }}));
+                },
+                (err) =>{
+                    console.error('CAR LOAD ERROR:', err);
+                    resolve(); // resolve anyway so loading doesn't hang
+                },        
         
-
-            console.log("Dodge Charger loaded with raycast vehicle physics!");
-            console.log("Dodge Charger loaded with raycast vehicle physics!");
-            console.log("Vehicle object:", vehicle);
-            console.log("Chassis body:", chassisBody);
-            console.log("Number of wheels:", vehicle.wheelInfos.length);
-        }, undefined, (err) => {
-            console.error('CAR LOAD ERROR:', err);
-        });
-        
-        window.dispatchEvent(new CustomEvent("human-loaded"));
+            );
+        }
+    );
     }
 
     onCollide(){

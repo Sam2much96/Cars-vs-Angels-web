@@ -18,6 +18,7 @@ import { Inventory } from "./Inventory/Inventory";
 import { VirtualJoystickOverlay } from '../UI/Inputs/VirtualJoystick.tsx';
 import { VirtualButton } from '../UI/Inputs/VirtualButton.tsx';
 import { TitleScreen } from './TitleScreen.tsx';
+import './styles/styles.css';
 
 const inventory = new Inventory();
 

@@ -66,6 +66,9 @@ export class Human {
     public cameraOffset = new THREE.Vector3(2, 1.5, 2);// behind
                 
 
+    public ready: Promise<void>;
+    public spawnPoint = new THREE.Vector3(-19,24,0.5);
+
     constructor(loader = window.loader, scene = window.scene, world = window.world) {
 
         this.mesh = null;
@@ -75,40 +78,53 @@ export class Human {
 
         InputManager.initialize(); //canvas
         
+        this.ready = new Promise((resolve) => {
 
-        loader.load('./man_maniquin.glb', (gltf) => {
-            // Temporarily log them after loading
-            console.log(gltf.animations.map(a => a.name));
+            loader.load('./CJ_3.glb', 
+                (gltf) => {
+                // Temporarily log them after loading
+                console.log("animation debug: ",gltf.animations.map(a => a.name));
 
 
 
-            const man = gltf.scene;
-            
-            // Traverse all child meshes and enable shadows
-            man.traverse((child) => {
-                if (child instanceof THREE.Mesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                }
+                const man = gltf.scene;
+                
+                // Traverse all child meshes and enable shadows
+                man.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+
+                scene.add(man);
+                this.mesh = man;
+
+
+                // Create the mixer on the loaded model
+                this.playerAnims = new THREE.AnimationMixer(man);
+
+                // Store clips by name for easy access
+                this.clips = gltf.animations; // THREE.AnimationClip[]
+
+                this.body = this._createCapsuleBody();
+                world.addBody(this.body);
+                resolve()
+
+            }, 
+            (progress) =>{
+                const percent = progress.total > 0
+                    ? Math.round((progress.loaded / progress.total) * 100)
+                    : 0;
+                window.dispatchEvent(new CustomEvent("load-progress", {
+                    detail: { percent, label: "Loading vehicle..." }
+                }));
+            }, 
+            (err) => {
+                console.error('CITY LOAD ERROR:', err);
             });
 
-            scene.add(man);
-            this.mesh = man;
-
-
-            // Create the mixer on the loaded model
-            this.playerAnims = new THREE.AnimationMixer(man);
-
-            // Store clips by name for easy access
-            this.clips = gltf.animations; // THREE.AnimationClip[]
-
-            this.body = this._createCapsuleBody();
-            world.addBody(this.body);
-
-        }, undefined, (err) => {
-            console.error('CITY LOAD ERROR:', err);
         });
-
         // connects to the virual button in the UI
         window.addEventListener("player-interact", () => {
             
@@ -123,7 +139,7 @@ export class Human {
             
         });
 
-        //window.dispatchEvent(new CustomEvent("human-loaded"));
+        
     }
 
     /**
@@ -167,7 +183,7 @@ export class Human {
         );
 
         // Spawn position
-        body.position.set(10, 1, 0);
+        body.position.set(this.spawnPoint.x, this.spawnPoint.y, this.spawnPoint.z);
 
         return body;
     }
@@ -222,7 +238,7 @@ export class Human {
 
         if (moving && !this.isDriving) {
             
-            this.playAnimation("Run Anime");
+            this.playAnimation("Human.rig|mixamo.com|Layer0");
             this.State()["STATE_WALKING"](w, s, a, d, axis);
         }
 
@@ -246,7 +262,8 @@ export class Human {
         }
 
         if(!moving) {
-            this.playAnimation("Idle_Loop");
+            //this.playAnimation("Idle_Loop");
+            return;
         }
         if (jump){
             console.log("jump action triggered");
@@ -407,6 +424,7 @@ export class Human {
                 console.log(" Try enter vehicle :", this.vehicle);
 
                 this.isDriving = true;
+                this.mesh!.visible = false;
 
                 // --------------------------------------------------
                 // Disable human collision so the capsule can't push

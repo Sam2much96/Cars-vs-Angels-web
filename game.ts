@@ -65,6 +65,7 @@ import {Rock} from "./src/props/rocks"
 import {Gem} from "./src/props/gem";
 import {Terrain} from "./src/Level/ground";
 import {Buildings} from "./src/Level/buildings";
+import {Waters} from "./src/Level/water";
 import {Human} from "./src/Characters/Human";
 import {Dragon} from "./src/Characters/Dragon";
 import {Bird} from "./src/Characters/Bird";
@@ -89,6 +90,7 @@ declare global {
         world : CANNON.World, // cannon es physics world pointer
         loader : GLTFLoader,
         camera : THREE.PerspectiveCamera, // global pointer to camera
+        _builtinWater : any,
 
     }
 }
@@ -154,7 +156,7 @@ initializeGameMonetizeAds(
 // Overall Level Debug
 // ------------------------------------------------------
 // to do: (1) export this setting to a debug UI in controls
-const DEBUG = false;
+const DEBUG = true; 
 
 
 // ------------------------------------------------------
@@ -275,16 +277,25 @@ window.loader = new GLTFLoader();
 // Level props
 const ground = new Terrain();
 const buildings = new Buildings();
-
+const waters = new Waters();
 
 // ------------------------------------------------------
 // Vehicle
 // ------------------------------------------------------
-window.Vehicle = new Vehicle(); 
+window.Vehicle = new Vehicle();
+window.player  = new Human();
 
+// update vehilce and player object with the spawnpoint co-ordinates
+//window.Vehicle.spawnPoint = buildings.spawnpoint!;
+//window.player.spawnPoint = buildings.spawnpoint!;
 
+// Wait for both to finish loading simultaneously
+await Promise.all([
+    window.Vehicle.ready,
+    window.player.ready,
+]);
 
-
+window.dispatchEvent(new CustomEvent("human-loaded"));
 
 window.Angel = new Enemy();
 
@@ -295,8 +306,6 @@ window.Angel = new Enemy();
 //const testing_1 = new Rock();
 //const testing_2 = new Gem();
 
-// temporarily disabled for refactoring March 1, 2026
-window.player = new Human(); // works
 
 
 const clock = new THREE.Clock();
@@ -309,7 +318,7 @@ const physicsStep = isMobile ? 1/30 : 1/60;
 const targetFPS = isMobile ? 30 : 60;
 const frameInterval = 1000 / targetFPS;
 let lastFrameTime = 0;
-
+let frame = 0;
 
 /**
  * Core Game Loop
@@ -325,6 +334,7 @@ let lastFrameTime = 0;
  */
 function animate(timestamp : number = 0) {
     requestAnimationFrame(animate);
+    frame++
 
     // fps throtling
     if (timestamp - lastFrameTime < frameInterval) return;
@@ -352,6 +362,17 @@ function animate(timestamp : number = 0) {
 
     if (window.Angel){
         window.Angel.physicsProcess();
+    }
+
+    // In your animation loop:
+    if (window._builtinWater) {
+           window._builtinWater.material.uniforms['time'].value += 1 / 60;
+
+        if (frame % 3 === 0) {
+            // Only re-render the reflection every 3rd frame (~20fps at 60fps)
+            window._builtinWater.visible = true;
+            //renderer.render(window.scene, camera); // reflection bakes here internally
+        }
     }
 
     // debug the 3d collisions physics visually

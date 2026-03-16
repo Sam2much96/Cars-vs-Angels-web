@@ -1,34 +1,33 @@
-/**
- * TitleScreen.tsx
- * src/UI/TitleScreen.tsx
- *
- * ── SETUP ──────────────────────────────────────────────────
- * Add to Human.ts at the end of loader.load() success callback,
- * after world.addBody(this.body):
- *
- *   window.dispatchEvent(new CustomEvent("human-loaded"));
- *
- * ── ASSETS in /public ──────────────────────────────────────
- *   PricedownBl-Regular-900.ttf
- *   car_art_transparent.png
- * ───────────────────────────────────────────────────────────
- */
-
 import { useState, useEffect } from "react";
 import "./styles/titlescreen.css";
 
 type Phase = "visible" | "fading" | "gone";
 
 export function TitleScreen() {
-    const [phase, setPhase] = useState<Phase>("visible");
+    const [phase, setPhase]       = useState<Phase>("visible");
+    const [percent, setPercent]   = useState<number>(0);
+    const [label, setLabel]       = useState<string>("Loading...");
 
     useEffect(() => {
-        const onLoaded = () => {
-            setPhase("fading");
-            setTimeout(() => setPhase("gone"), 800);
+        const onProgress = (e: Event) => {
+            const { percent, label } = (e as CustomEvent).detail;
+            setPercent(percent);
+            setLabel(label);
         };
+
+        const onLoaded = () => {
+            setPercent(100);
+            setTimeout(() => setPhase("fading"), 300); // brief pause at 100%
+            setTimeout(() => setPhase("gone"), 1100);
+        };
+
+        window.addEventListener("load-progress", onProgress);
         window.addEventListener("human-loaded", onLoaded, { once: true });
-        return () => window.removeEventListener("human-loaded", onLoaded);
+
+        return () => {
+            window.removeEventListener("load-progress", onProgress);
+            window.removeEventListener("human-loaded", onLoaded);
+        };
     }, []);
 
     if (phase === "gone") return null;
@@ -36,31 +35,34 @@ export function TitleScreen() {
     return (
         <div className={`title-screen${phase === "fading" ? " fading" : ""}`}>
 
-            {/* ── Title logo ──────────────────────────────── */}
             <div className="title-logo">
                 <span className="title-word">Cars</span>
                 <span className="title-word vs">vs</span>
                 <span className="title-word">Angels</span>
             </div>
 
-            {/* ── Loading throbber ────────────────────────── */}
             <div className="title-throbber">
-                <div className="throbber-dots">
-                    <div className="throbber-dot" />
-                    <div className="throbber-dot" />
-                    <div className="throbber-dot" />
+                {/* Label */}
+                <p className="throbber-label">{label}</p>
+
+                {/* Progress bar */}
+                <div className="progress-track">
+                    <div
+                        className="progress-fill"
+                        style={{ width: `${percent}%` }}
+                    />
                 </div>
-                <p className="throbber-label">Loading</p>
+
+                {/* Percentage number */}
+                <p className="progress-percent">{percent}%</p>
             </div>
 
-            {/* ── Car art — slides in from right, then throbs */}
             <img
                 className="title-car-art"
-                src="./car_art_transparent.png"
+                src="/car_art_transparent.png"
                 alt="Dodge Charger"
                 draggable={false}
             />
-
         </div>
     );
 }
