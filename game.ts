@@ -71,6 +71,8 @@ import {Dragon} from "./src/Characters/Dragon";
 import {Bird} from "./src/Characters/Bird";
 
 
+import { Minimap } from './src/Minimap/Minimap.ts';
+
 // to do: (1) depreciate this into a process code bloc in the angel object
 //import { syncAngelGraphics } from './syncGraphics.ts';
 
@@ -90,6 +92,7 @@ declare global {
         world : CANNON.World, // cannon es physics world pointer
         loader : GLTFLoader,
         camera : THREE.PerspectiveCamera, // global pointer to camera
+        renderer : THREE.WebGLRenderer,
         _builtinWater : any,
 
     }
@@ -173,7 +176,12 @@ camera.position.set(0, 5, 6);
 window.camera = camera;
 
 
-const renderer = new THREE.WebGLRenderer({antialias: true});
+const renderer = new THREE.WebGLRenderer({
+    //canvas: document.getElementById('canvas') as HTMLCanvasElement,
+    preserveDrawingBuffer: true,  // required for readRenderTargetPixels
+    antialias: true
+
+});
 
 //set up the renderer
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -183,6 +191,8 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 renderer.setSize(window.innerWidth, window.innerHeight);
+
+window.renderer = renderer;
 document.body.appendChild(renderer.domElement);
 
 // cap pixel ration [optimisation]
@@ -274,6 +284,7 @@ window.loader = new GLTFLoader();
 
 
 
+
 // Level props
 const ground = new Terrain();
 const buildings = new Buildings();
@@ -299,6 +310,15 @@ window.dispatchEvent(new CustomEvent("human-loaded"));
 
 window.Angel = new Enemy();
 
+
+
+// After renderer and scene are ready:
+const minimap = new Minimap(renderer, window.scene);
+const blips = [
+  { position: window.Vehicle.carMesh!.position,  color: '#ff4444' }, // red = enemy
+  { position: window.player.mesh!.position,  color: '#44aaff' },
+  //{ position: window.Angel.AngelMesh!.position, color: '#44aaff' }, // blue = angel
+];
 
 
 // testing 3d game items
@@ -379,6 +399,10 @@ function animate(timestamp : number = 0) {
     if (DEBUG){
         cannonDebugger.update();
     }
+
+
+    // Update minimap — pass player world position and blips
+    minimap.update(window.player.mesh!.position, blips);
     
     renderer.render(window.scene, camera);
 }

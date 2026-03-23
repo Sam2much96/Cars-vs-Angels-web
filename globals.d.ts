@@ -17,6 +17,7 @@ declare global {
     world: CANNON.World;
     loader : GLTFLoader
     camera: THREE.PerspectiveCamera;
+    renderer : THREE.WebGLRenderer,
     _builtinWater: any;
   }
 }

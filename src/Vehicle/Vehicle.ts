@@ -82,7 +82,7 @@ export class Vehicle {
     
     public ready: Promise<void>;
 
-    public spawnPoint  = new THREE.Vector3(-19,24,1);
+    public spawnPoint  = new THREE.Vector3(-19,24,0);
 
     constructor(scene : THREE.Scene = window.scene , world: CANNON.World = window.world, loader = window.loader){
 
