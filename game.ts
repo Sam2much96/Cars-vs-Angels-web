@@ -332,6 +332,7 @@ window.Angel = new Enemy();
 await Promise.all([
     window.Vehicle.ready,
     window.player.ready,
+    window.Angel.ready
 ]);
 
 window.dispatchEvent(new CustomEvent("human-loaded"));
@@ -345,7 +346,7 @@ const minimap = new Minimap(renderer, window.scene);
 const blips = [
   { position: window.Vehicle.carMesh!.position,  color: '#ff4444' }, // red = enemy
   { position: window.player.mesh!.position,  color: '#44aaff' },
-  //{ position: window.Angel.AngelMesh!.position, color: '#44aaff' }, // blue = angel
+  { position: window.Angel.AngelMesh!.position, color: '#eeff33ff' }, // blue = angel
 ];
 
 

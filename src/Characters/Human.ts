@@ -102,7 +102,7 @@ export class Human {
         this.ready = new Promise((resolve) => {
             loader.load('./CJ_5.glb',
                 (gltf) => {
-                    console.log("animation debug:", gltf.animations.map(a => a.name));
+                    console.log("player animation debug:", gltf.animations.map(a => a.name));
 
                     const man = gltf.scene;
                     man.traverse((child) => {
