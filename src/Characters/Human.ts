@@ -67,7 +67,7 @@ export class Human {
     public cameraOffset = new THREE.Vector3(2, 1.5, 2);
 
     public ready      : Promise<void>;
-    public spawnPoint = new THREE.Vector3(-19, 24, 0.5);
+    public spawnPoint = new THREE.Vector3(-19, 26, 0.5);
 
     // ── Health ────────────────────────────────────────────────────────────────
     public hp    : number = 100;

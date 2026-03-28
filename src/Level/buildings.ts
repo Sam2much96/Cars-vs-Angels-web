@@ -11,65 +11,84 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
 export class Buildings {
-  public spawnpoint : THREE.Vector3 | undefined;
+  public spawnpoint: THREE.Vector3 | undefined;
+  private debugMeshes: THREE.Mesh[] = [];
 
   constructor(
     loader = window.loader,
     scene = window.scene,
-    world = window.world
+    world = window.world,
+    debug = false   // set true to see green wireframes
   ) {
-
     loader.load('./buildings_mesh.glb', (gltf) => {
-      const buildings = gltf.scene;
+      const root = gltf.scene;
+      scene.add(root);
+      root.updateMatrixWorld(true);
 
-      // Force the full scene graph matrix update before reading any worldMatrix
-      scene.add(buildings);
-      buildings.updateMatrixWorld(true);
+      root.traverse((obj) => {
 
-      buildings.traverse((obj) => {
-        if (obj instanceof THREE.Mesh === false) return;
-
-        if (obj.name === "spawnpoint"){
-          console.log("spawnpoint object found : ", obj.position);
-          this.spawnpoint = obj.position
+        // ── Spawnpoint ───────────────────────────────────────────
+        if (obj.name === 'spawnpoint') {
+          this.spawnpoint = new THREE.Vector3();
+          obj.getWorldPosition(this.spawnpoint);
+          return;
         }
 
-        // Bounding box in world space — gives true center and true size
-        // regardless of pivot point or parent transforms
-        const bbox = new THREE.Box3().setFromObject(obj);
+        // ── Collision empties only ───────────────────────────────
+        if (!obj.name.startsWith('col_')) return;
+        if (obj instanceof THREE.Mesh) return; // skip accidental mesh matches
 
-        const center = new THREE.Vector3();
-        const size   = new THREE.Vector3();
-        bbox.getCenter(center);
-        bbox.getSize(size);
+        const pos   = new THREE.Vector3();
+        const quat  = new THREE.Quaternion();
+        const scale = new THREE.Vector3();
 
-        // Get world-space quaternion only (no position — we use bbox center instead)
-        const worldQuat = new THREE.Quaternion();
-        obj.getWorldQuaternion(worldQuat);
+        obj.getWorldPosition(pos);
+        obj.getWorldQuaternion(quat);
+        obj.getWorldScale(scale);
 
+        // scale = real-world metres set in Blender, halfExtents = scale / 2
         const shape = new CANNON.Box(new CANNON.Vec3(
-          size.x / 2,
-          size.y / 2,
-          size.z / 2
+          scale.x / 2,
+          scale.y / 2,
+          scale.z / 2
         ));
 
         const body = new CANNON.Body({
           mass: 0,
           shape,
-          position: new CANNON.Vec3(center.x, center.y, center.z),
-          quaternion: new CANNON.Quaternion(
-            worldQuat.x,
-            worldQuat.y,
-            worldQuat.z,
-            worldQuat.w
-          ),
+          position : new CANNON.Vec3(pos.x, pos.y, pos.z),
+          quaternion: new CANNON.Quaternion(quat.x, quat.y, quat.z, quat.w),
         });
 
         world.addBody(body);
+
+        if (debug) this.addDebugWireframe(pos, scale, quat, scene);
       });
 
     }, undefined, (err) => {
       console.error('BUILDINGS LOAD ERROR:', err);
     });
+  }
+
+  private addDebugWireframe(
+    pos: THREE.Vector3,
+    scale: THREE.Vector3,
+    quat: THREE.Quaternion,
+    scene: THREE.Scene
+  ) {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(scale.x, scale.y, scale.z),
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+    );
+    mesh.position.copy(pos);
+    mesh.quaternion.copy(quat);
+    scene.add(mesh);
+    this.debugMeshes.push(mesh);
+  }
+
+  /** Call this once collisions look correct to free memory */
+  public removeDebug(scene: THREE.Scene) {
+    this.debugMeshes.forEach(m => scene.remove(m));
+    this.debugMeshes = [];
   }
 }

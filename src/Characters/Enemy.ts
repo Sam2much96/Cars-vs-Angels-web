@@ -45,7 +45,7 @@ export class Enemy {
                 // (2) LOAD DODGE CHARGER MODEL
                 // ------------------------------------------------------
                 
-                loader.load('./Angel.glb', (gltf) => {
+                loader.load('./BiblicallyAcurateAngel.glb', (gltf) => {
                     this.AngelMesh = gltf.scene;
                     
                     this.AngelMesh.traverse((child) => {

@@ -263,7 +263,14 @@ window.world = world;
 world.gravity.set(0, DEFAULT_GRAVITY, 0)
 
 // Sweep and prune broadphase
-world.broadphase = new CANNON.SAPBroadphase(world)
+world.broadphase = new CANNON.SAPBroadphase(world);
+world.broadphase.useBoundingBoxes = true;
+
+// Also increase the sleep threshold so static/idle bodies stop simulating
+world.allowSleep = true;
+//world.sleepTimeLimit = 0.1;
+//world.sleepSpeedLimit = 0.1;
+
 
 // Disable friction by default
 world.defaultContactMaterial.friction = 10
@@ -283,6 +290,26 @@ window.loader = new GLTFLoader();
 
 
 
+// FPS Debugger
+// ── FPS Counter ───────────────────────────────────────────────────────────────
+const fpsDisplay = document.createElement('div');
+fpsDisplay.style.cssText = `
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: #00ff00;
+    font-family: monospace;
+    font-size: 14px;
+    background: rgba(0,0,0,0.5);
+    padding: 4px 8px;
+    border-radius: 4px;
+    z-index: 9999;
+    pointer-events: none;
+`;
+document.body.appendChild(fpsDisplay);
+let fpsTimer = 0;
+let fpsCount = 0;
+// ─────────────────────────────────────────────────────────────────────────────
 
 
 // Level props
@@ -295,6 +322,7 @@ const waters = new Waters();
 // ------------------------------------------------------
 window.Vehicle = new Vehicle();
 window.player  = new Human();
+window.Angel = new Enemy();
 
 // update vehilce and player object with the spawnpoint co-ordinates
 //window.Vehicle.spawnPoint = buildings.spawnpoint!;
@@ -308,7 +336,7 @@ await Promise.all([
 
 window.dispatchEvent(new CustomEvent("human-loaded"));
 
-window.Angel = new Enemy();
+//window.Angel = new Enemy();
 
 
 
@@ -355,13 +383,30 @@ let frame = 0;
 function animate(timestamp : number = 0) {
     requestAnimationFrame(animate);
     frame++
+    
+
 
     // fps throtling
     if (timestamp - lastFrameTime < frameInterval) return;
+    let delta = clock.getDelta();
     lastFrameTime = timestamp;
     
 
-    let delta = clock.getDelta();
+        //FPS counter
+    // FPS counter update
+    fpsCount++;
+    fpsTimer += delta;
+    if ( fpsTimer >= 1) {
+        fpsDisplay.textContent = [
+            `FPS: ${fpsCount}`,
+            `Delta: ${(delta * 1000).toFixed(1)}ms`,
+            `Bodies: ${world.bodies.length}`,
+            `Frame: ${frame}`,
+        ].join(' | ');
+        fpsCount = 0;
+        fpsTimer = 0;
+    }
+
     // to do: (1) this should be mapped to settings ui
     //world.step(1/60, delta,3); // simulate the world physics at 60 fps
 
