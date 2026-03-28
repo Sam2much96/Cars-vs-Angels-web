@@ -97,8 +97,7 @@ export class Enemy {
                 )
         });
 
-        //play the default angel animation
-        this.State()["FLOATING"]();
+      
                 
 
       }
@@ -129,6 +128,9 @@ export class Enemy {
         window.Angel.AngelMesh?.position.copy(window.Angel.body.position);
         window.Angel.AngelMesh?.quaternion.copy(window.Angel.body.quaternion);
 
+          //play the default angel animation
+        //this.State()["FLOATING"]();
+        this.playAnimation("Armature.001|Armature.001|Armature.002Action.002");
     }
 
     // ── ANIMATION ─────────────────────────────────────────────────────────────

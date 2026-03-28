@@ -1,3 +1,14 @@
+/**
+ * 
+ * Human.ts
+ * 
+ * to do:
+ * (1) create collision pointers for hands and legs collision shapes
+ * (2) fix mesh and collision desync
+ * 
+ * 
+ */
+
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { InputManager } from "../UI/Inputs/InputManager";
