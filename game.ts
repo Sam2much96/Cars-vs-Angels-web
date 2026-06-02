@@ -1,3 +1,5 @@
+/// <reference path="./game.d.ts" />
+
 /**
  * game.ts — bootstrap
  *

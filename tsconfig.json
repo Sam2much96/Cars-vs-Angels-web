@@ -28,6 +28,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "globals.d.ts", "globals.d.ts"],
+  "include": ["src", "game.d.ts", "game.ts"],
   "exclude": ["node_modules"]
 }
