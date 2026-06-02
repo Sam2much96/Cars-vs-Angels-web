@@ -15,7 +15,7 @@
  */
 import { useState, useEffect } from "react";
 import { Inventory } from "./Inventory/Inventory";
-import { VirtualJoystickOverlay } from '../UI/Inputs/VirtualJoystick.tsx';
+import { VirtualJoystickOverlay, CameraJoystickOverlay } from '../UI/Inputs/VirtualJoystick.tsx';
 import { VirtualButton } from '../UI/Inputs/VirtualButton.tsx';
 import { TitleScreen } from './TitleScreen.tsx';
 import './styles/styles.css';
@@ -92,6 +92,7 @@ export default function UI() {
             <div id="health">❤ {health}</div>
 
             <VirtualJoystickOverlay />
+            <CameraJoystickOverlay />
 
             <VirtualButton label="Enter" onClick={handleInteract} />
 

@@ -8,14 +8,11 @@
  */
 
 import * as THREE from 'three';
-//import { Water } from 'three/addons/objects/Water.js';
-
-
-//import * as THREE from 'three';
-//import { Water } from 'three/addons/objects/Water.js';
+import type { GameContext } from '../core/context';
 
 export class Waters {
-  constructor(loader = window.loader, scene = window.scene) {
+  constructor(ctx: GameContext = window.ctx) {
+    const { loader, scene } = ctx;
     loader.load('./water_mesh.glb', (gltf) => {
       const water = gltf.scene;
 

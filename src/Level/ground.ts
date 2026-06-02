@@ -10,15 +10,12 @@
 
 import * as THREE from 'three';
 import * as CANNON from "cannon-es";
+import type { GameContext } from '../core/context';
 
 export class Terrain {
 
-    /**
-     * loads the 3d level mesh and applies static body collisions to it
-     * @param loader 
-     * 
-     */
-    constructor(loader = window.loader, scene = window.scene, world = window.world){
+    constructor(ctx: GameContext = window.ctx) {
+        const { loader, scene, world } = ctx;
 
        
 // ------------------------------------------------------

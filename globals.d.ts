@@ -6,9 +6,11 @@ import type { Music } from './src/Music/Music';
 import type * as THREE from 'three';
 import type * as CANNON from 'cannon-es';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import type { GameContext } from './src/core/context';
 
 declare global {
   interface Window {
+    ctx: GameContext;
     Vehicle: Vehicle;
     Angel: Enemy;
     player : Human;

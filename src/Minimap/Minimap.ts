@@ -8,6 +8,7 @@
  * (3) shows a player blip and optional entity blips (NPCs, angels, etc.)
  */
 import * as THREE from 'three';
+import type { GameContext } from '../core/context';
 
 export class Minimap {
   private renderer:      THREE.WebGLRenderer;
@@ -23,10 +24,8 @@ export class Minimap {
   private mapSize  = 200;   // px — diameter of the circle
   private mapRange = 150;   // world units visible from center outward
 
-  constructor(
-    renderer = window.renderer as THREE.WebGLRenderer,
-    scene    = window.scene    as THREE.Scene,
-  ) {
+  constructor(ctx: GameContext = window.ctx) {
+    const { renderer, scene } = ctx;
     this.renderer = renderer;
     this.scene    = scene;
 
@@ -147,19 +146,39 @@ export class Minimap {
     for (const blip of blips) {
       const dx = blip.position.x - playerPosition.x;
       const dz = blip.position.z - playerPosition.z;
-      const bx = half + (dx / this.mapRange) * half;
-      const by = half + (dz / this.mapRange) * half;
+      const rawBx = half + (dx / this.mapRange) * half;
+      const rawBy = half + (dz / this.mapRange) * half;
+      const distFromCenter = Math.hypot(rawBx - half, rawBy - half);
+      const edgeMargin = 10;
 
-      // Skip if outside circle
-      if (Math.hypot(bx - half, by - half) > half) continue;
+      if (distFromCenter > half - edgeMargin) {
+        // Off-map: draw an arrow at the circle edge pointing toward the target
+        const angle = Math.atan2(rawBy - half, rawBx - half);
+        const edgeR = half - edgeMargin;
+        const ex = half + Math.cos(angle) * edgeR;
+        const ey = half + Math.sin(angle) * edgeR;
 
-      ctx.beginPath();
-      ctx.arc(bx, by, 4, 0, Math.PI * 2);
-      ctx.fillStyle = blip.color;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.rotate(angle + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(0, -6);
+        ctx.lineTo(5, 4);
+        ctx.lineTo(-5, 4);
+        ctx.closePath();
+        ctx.fillStyle = blip.color;
+        ctx.fill();
+        ctx.restore();
+      } else {
+        // On-map: draw normal dot
+        ctx.beginPath();
+        ctx.arc(rawBx, rawBy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = blip.color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
     }
 
     // Player blip — always centered, white arrow pointing forward

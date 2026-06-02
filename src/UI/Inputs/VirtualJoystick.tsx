@@ -303,3 +303,222 @@ export function VirtualJoystickOverlay() {
         </div>
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CameraJoystick — right-half touch zone, dark grey theme
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class CameraJoystick {
+    static readonly RADIUS = 60;
+
+    // Touch state
+    private static activeId:  number | null = null;
+    private static originX  = 0;
+    private static originY  = 0;
+    private static currentX = 0;
+    private static currentY = 0;
+
+    // Mouse-sim state (PC)
+    private static mouseSimActive  = false;
+    private static mouseSimOriginX = 0;
+    private static mouseSimOriginY = 0;
+    private static mouseSimX       = 0;
+    private static mouseSimY       = 0;
+
+    private static _onStateChange: ((s: JoystickState) => void) | null = null;
+
+    static _setReactBridge(fn: ((s: JoystickState) => void) | null) {
+        this._onStateChange = fn;
+    }
+
+    private static _notify() {
+        if (!this._onStateChange) return;
+        const { x, y } = this.getAxis();
+        const simActive = this.mouseSimActive;
+        const active    = simActive || this.activeId !== null;
+        const oX = simActive ? this.mouseSimOriginX : this.originX;
+        const oY = simActive ? this.mouseSimOriginY : this.originY;
+        let   dX = simActive ? this.mouseSimX - oX  : this.currentX - oX;
+        let   dY = simActive ? this.mouseSimY - oY  : this.currentY - oY;
+        const dist = Math.sqrt(dX * dX + dY * dY);
+        if (dist > this.RADIUS) { dX = (dX / dist) * this.RADIUS; dY = (dY / dist) * this.RADIUS; }
+        this._onStateChange({ active, originX: oX, originY: oY, knobDX: dX, knobDY: dY, axisX: x, axisY: y });
+    }
+
+    // ── Touch handlers ────────────────────────────────────────────────────────
+
+    static _onTouchStart(x: number, y: number, id: number, zoneWidth: number) {
+        if (this.activeId !== null) return;
+        if (x < zoneWidth / 2) return; // right half only
+        this.activeId  = id;
+        this.originX   = x;
+        this.originY   = y;
+        this.currentX  = x;
+        this.currentY  = y;
+        this._notify();
+    }
+
+    static _onTouchMove(x: number, y: number, id: number) {
+        if (this.activeId !== id) return;
+        this.currentX = x;
+        this.currentY = y;
+        this._notify();
+    }
+
+    static _onTouchEnd(id: number) {
+        if (this.activeId !== id) return;
+        this.activeId  = null;
+        this.currentX  = this.originX;
+        this.currentY  = this.originY;
+        this._notify();
+    }
+
+    // ── Mouse-sim handlers (PC) ───────────────────────────────────────────────
+
+    static _onMouseDown(x: number, y: number, zoneWidth: number) {
+        if (x < zoneWidth / 2) return; // right half only
+        this.mouseSimActive  = true;
+        this.mouseSimOriginX = x;
+        this.mouseSimOriginY = y;
+        this.mouseSimX       = x;
+        this.mouseSimY       = y;
+        this._notify();
+    }
+
+    static _onMouseMove(x: number, y: number) {
+        if (!this.mouseSimActive) return;
+        this.mouseSimX = x;
+        this.mouseSimY = y;
+        this._notify();
+    }
+
+    static _onMouseUp() {
+        if (!this.mouseSimActive) return;
+        this.mouseSimActive = false;
+        this._notify();
+    }
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    static getAxis(): { x: number; y: number } {
+        const simActive = this.mouseSimActive;
+        const active    = simActive || this.activeId !== null;
+        if (!active) return { x: 0, y: 0 };
+        const oX  = simActive ? this.mouseSimOriginX : this.originX;
+        const oY  = simActive ? this.mouseSimOriginY : this.originY;
+        let   dX  = (simActive ? this.mouseSimX : this.currentX) - oX;
+        let   dY  = (simActive ? this.mouseSimY : this.currentY) - oY;
+        const dist = Math.sqrt(dX * dX + dY * dY);
+        if (dist > this.RADIUS) { dX = (dX / dist) * this.RADIUS; dY = (dY / dist) * this.RADIUS; }
+        return { x: dX / this.RADIUS, y: dY / this.RADIUS };
+    }
+
+    static isActive(): boolean { return this.mouseSimActive || this.activeId !== null; }
+}
+
+export function CameraJoystickOverlay() {
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const [js, setJs] = useState<JoystickState>(DEFAULT_STATE);
+    const R = CameraJoystick.RADIUS;
+
+    useEffect(() => {
+        CameraJoystick._setReactBridge(setJs);
+        return () => CameraJoystick._setReactBridge(null);
+    }, []);
+
+    const onTouchStart = useCallback((e: React.TouchEvent) => {
+        const rect = overlayRef.current!.getBoundingClientRect();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            CameraJoystick._onTouchStart(t.clientX - rect.left, t.clientY - rect.top, t.identifier, rect.width);
+        }
+    }, []);
+
+    const onTouchMove = useCallback((e: React.TouchEvent) => {
+        const rect = overlayRef.current!.getBoundingClientRect();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            CameraJoystick._onTouchMove(t.clientX - rect.left, t.clientY - rect.top, t.identifier);
+        }
+    }, []);
+
+    const onTouchEnd = useCallback((e: React.TouchEvent) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            CameraJoystick._onTouchEnd(e.changedTouches[i].identifier);
+        }
+    }, []);
+
+    const onMouseDown = useCallback((e: React.MouseEvent) => {
+        const rect = overlayRef.current!.getBoundingClientRect();
+        CameraJoystick._onMouseDown(e.clientX - rect.left, e.clientY - rect.top, rect.width);
+    }, []);
+
+    const onMouseMove = useCallback((e: React.MouseEvent) => {
+        const rect = overlayRef.current!.getBoundingClientRect();
+        CameraJoystick._onMouseMove(e.clientX - rect.left, e.clientY - rect.top);
+    }, []);
+
+    const onMouseUp = useCallback(() => {
+        CameraJoystick._onMouseUp();
+    }, []);
+
+    return (
+        <div
+            ref={overlayRef}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            style={{
+                position: "fixed", inset: 0,
+                pointerEvents: "none",
+                zIndex: 10,
+                overflow: "hidden",
+                userSelect: "none",
+            }}
+        >
+            {/* Right half captures camera touch input */}
+            <div style={{
+                position: "absolute",
+                right: 0, top: 0,
+                width: "50%", height: "100%",
+                pointerEvents: "all",
+            }} />
+
+            {/* Dark grey joystick visual */}
+            {js.active && (
+                <svg style={{
+                    position: "absolute",
+                    left: js.originX - R, top: js.originY - R,
+                    width: R * 2, height: R * 2,
+                    overflow: "visible", pointerEvents: "none",
+                }}>
+                    <circle cx={R} cy={R} r={R - 2}
+                        fill="rgba(30,30,30,0.6)"
+                        stroke="rgba(140,140,140,0.45)"
+                        strokeWidth={2}
+                    />
+                    {[0, 90, 180, 270].map((deg) => {
+                        const rad = (deg * Math.PI) / 180;
+                        return (
+                            <line key={deg}
+                                x1={R + Math.cos(rad) * R * 0.72} y1={R + Math.sin(rad) * R * 0.72}
+                                x2={R + Math.cos(rad) * R * 0.92} y2={R + Math.sin(rad) * R * 0.92}
+                                stroke="rgba(140,140,140,0.25)" strokeWidth={1.5} strokeLinecap="round"
+                            />
+                        );
+                    })}
+                    <circle cx={R + js.knobDX} cy={R + js.knobDY} r={R * 0.38}
+                        fill="rgba(70,70,70,0.85)"
+                        stroke="rgba(160,160,160,0.6)"
+                        strokeWidth={1.5}
+                    />
+                </svg>
+            )}
+        </div>
+    );
+}

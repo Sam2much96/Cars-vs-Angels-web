@@ -17,9 +17,8 @@
 
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-
 import { uiStore } from '../UI/ui-score';
+import type { GameContext } from '../core/context';
 import { Vehicle } from '../Vehicle/Vehicle';
 
 
@@ -39,17 +38,15 @@ export class Enemy {
       public body?: CANNON.Body ;
       public isDead : Boolean = false;
       private radius: number = 1; // fallback default
-      public spawnpoint = new THREE.Vector3(-19, 26, 0.5);
+      public spawnpoint = new THREE.Vector3(-125, 3, 45);
       public ready : Promise<void>;
       public playerAnims  : THREE.AnimationMixer | null = null;
         clips               : THREE.AnimationClip[]       = [];
         currentAction       : THREE.AnimationAction | null = null;
 
-      constructor(scene : THREE.Scene= window.scene, world: CANNON.World = window.world, loader : GLTFLoader = window.loader){
-                // ------------------------------------------------------
-                // (2) LOAD DODGE CHARGER MODEL
-                // ------------------------------------------------------
-                
+      constructor(ctx: GameContext = window.ctx) {
+        const { scene, world, loader } = ctx;
+
         this.ready = new Promise((resolve) => {
                 loader.load('./BiblicallyAcurateAngel.glb', 
                     (gltf) => {

@@ -34,6 +34,7 @@ import { Human } from '../Characters/Human';
 // input manaager
 import { InputManager } from "../UI/Inputs/InputManager";
 import { VirtualJoystick } from '../UI/Inputs/VirtualJoystick.tsx';
+import type { GameContext } from '../core/context';
 
 
 export class Vehicle {
@@ -82,9 +83,10 @@ export class Vehicle {
     
     public ready: Promise<void>;
 
-    public spawnPoint  = new THREE.Vector3(-19,24,0);
+    public spawnPoint  = new THREE.Vector3(-125, 2, 22);
 
-    constructor(scene : THREE.Scene = window.scene , world: CANNON.World = window.world, loader = window.loader){
+    constructor(ctx: GameContext = window.ctx) {
+        const { scene, world, loader } = ctx;
 
         //gravity
         this.gravity = world.gravity.y | -10;
@@ -115,14 +117,12 @@ export class Vehicle {
         });
 
 
-            // Per-wheel axis correction quaternions
-        // Adjust X/Y/Z based on Blender export
-        this.leftWheelCorrection = new THREE.Quaternion().setFromEuler(
-            new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
-        );
-        this.rightWheelCorrection = new THREE.Quaternion().setFromEuler(
-            new THREE.Euler(-Math.PI / 2, Math.PI, 0) // mirror for right side
-        );
+            // Axle correction — aligns the GLB wheel disk with the physics axle direction.
+        // Both sides use the same value because the world→local conversion (below)
+        // already accounts for the chassis orientation. Tune this if tires still
+        // face the wrong way: try Euler(Math.PI/2,0,0) or Euler(0,0,Math.PI/2) etc.
+        this.leftWheelCorrection  = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0));
+        this.rightWheelCorrection = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0));
 
 
         /**
@@ -346,9 +346,6 @@ export class Vehicle {
     // trigger raycast phyiics update
     this.vehicle.updateVehicle(window.world.dt);
 
-    // update driving gamera 
-    if (this.isDriving )this.updateDrivingCameraV1(window.camera);
-
     // Sync chassis
     this.carMesh.position.copy(this.carBody.position).add(window.Vehicle?.carOffset); // sync car body with physics
     this.carMesh.quaternion.copy(this.carBody.quaternion).multiply(this.meshRotationOffset); //sync car rotation with colliision
@@ -362,36 +359,31 @@ export class Vehicle {
     ];
 
 
-    // Sync each wheel
+    // Inverse of the car mesh's current world quaternion.
+    // Wheel meshes are children of carMesh, so applying a world quaternion directly
+    // as their local quaternion would double-apply the chassis rotation.
+    // We must convert: localQ = inverse(carMeshWorldQuat) * wheelWorldQuat * axleCorrection
+    const invCarMeshQuat = this.carMesh.quaternion.clone().invert();
+
     this.vehicle?.wheelInfos.forEach((wheel, i) => {
         const mesh = wheelMeshes[i];
         if (!mesh) return;
 
-        // Update wheel physics transform
         window.Vehicle.vehicle?.updateWheelTransform(i);
         const wt = wheel.worldTransform;
 
-        // Copy position
-        //mesh.position.copy(wt.position);
-
-        // Copy rotation safely
-        const q = new THREE.Quaternion(
+        const wheelWorldQ = new THREE.Quaternion(
             wt.quaternion.x,
             wt.quaternion.y,
             wt.quaternion.z,
             wt.quaternion.w
         );
 
-        // Apply per-wheel correction
-        if (i === 0 || i === 2) {
-            // FL / BL
-            q.multiply(this.leftWheelCorrection);
-        } else {
-            // FR / BR
-            q.multiply(this.rightWheelCorrection);
-        }
+        // Convert from world → car mesh local space, then apply axle correction
+        const localQ = invCarMeshQuat.clone().multiply(wheelWorldQ);
+        localQ.multiply(i === 0 || i === 2 ? this.leftWheelCorrection : this.rightWheelCorrection);
 
-        mesh.quaternion.copy(q);
+        mesh.quaternion.copy(localQ);
     });
     }
 

@@ -9,17 +9,14 @@
  */
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import type { GameContext } from '../core/context';
 
 export class Buildings {
   public spawnpoint: THREE.Vector3 | undefined;
   private debugMeshes: THREE.Mesh[] = [];
 
-  constructor(
-    loader = window.loader,
-    scene = window.scene,
-    world = window.world,
-    debug = false   // set true to see green wireframes
-  ) {
+  constructor(ctx: GameContext = window.ctx, debug = false) {
+    const { loader, scene, world } = ctx;
     loader.load('./buildings_mesh.glb', (gltf) => {
       const root = gltf.scene;
       scene.add(root);

@@ -19,6 +19,7 @@
 
 import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import type { Rain } from './Rain';
 
 // ── Light intensity per phase ─────────────────────────────────────────────────
 
@@ -65,6 +66,10 @@ export class DayNightCycle {
     };
 
     private currentHDR: HDRSlot | null = null;
+
+    private rain: Rain | null = null;
+
+    setRain(rain: Rain) { this.rain = rain; }
 
     constructor(
         scene:       THREE.Scene,
@@ -127,7 +132,24 @@ export class DayNightCycle {
         this.updateSunPosition();
         this.updateLighting();
         this.updateHDR();
+        this.updateRain(delta);
 
+    }
+
+    // ── Rain — only active during dusk (0.55 – 0.80) ─────────────────────────
+
+    private updateRain(delta: number): void {
+        if (!this.rain) return;
+
+        const t = this.timeOfDay;
+        // Ramp up entering dusk, ramp down leaving dusk
+        const target =
+            t >= 0.55 && t < 0.65 ? ((t - 0.55) / 0.10)       // fade in
+          : t >= 0.65 && t < 0.72 ? 1.0                         // peak
+          : t >= 0.72 && t < 0.80 ? (1 - (t - 0.72) / 0.08)    // fade out
+          : 0;
+
+        this.rain.fadeTo(target, delta);
     }
 
     // ── Returns time as "HH:MM" for the in-game clock ────────────────────────

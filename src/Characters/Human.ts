@@ -5,7 +5,8 @@
  * to do:
  * (1) create collision pointers for hands and legs collision shapes
  * (2) fix mesh and collision desync
- * 
+ * (3) Organise and document code base properly
+ * (4) Implement health potion 3d mesh, animation and effects
  * 
  */
 
@@ -14,6 +15,7 @@ import * as CANNON from 'cannon-es';
 import { InputManager } from "../UI/Inputs/InputManager";
 import { VirtualJoystick } from '../UI/Inputs/VirtualJoystick.tsx';
 import { Vehicle } from "../Vehicle/Vehicle";
+import type { GameContext } from '../core/context';
 
 // ── HITBOX CONFIG ─────────────────────────────────────────────────────────────
 const HITBOX_CONFIG: Record<string, { radius: number; damage: number }> = {
@@ -78,7 +80,7 @@ export class Human {
     public cameraOffset = new THREE.Vector3(2, 1.5, 2);
 
     public ready      : Promise<void>;
-    public spawnPoint = new THREE.Vector3(-19, 26, 0.5);
+    public spawnPoint = new THREE.Vector3(-112, 2, 22);
 
     // ── Health ────────────────────────────────────────────────────────────────
     public hp    : number = 100;
@@ -103,7 +105,8 @@ export class Human {
     public onDeath: (() => void) | null = null;
     // ─────────────────────────────────────────────────────────────────────────
 
-    constructor(loader = window.loader, scene = window.scene, world = window.world) {
+    constructor(ctx: GameContext = window.ctx) {
+        const { loader, scene, world } = ctx;
         this.mesh  = null;
         this.body  = null;
         this.world = world;
@@ -492,7 +495,7 @@ export class Human {
     }
 
     // ── HITBOX INIT ───────────────────────────────────────────────────────────
-
+    // creates the hit boxes that track the hands and legs
     private _initHitboxes(model: THREE.Object3D, scene: THREE.Scene): void {
         if (!this.skeleton) {
             console.warn('HitboxSystem: No skeleton found — hitboxes disabled');
@@ -600,27 +603,7 @@ export class Human {
         this.currentAction = nextAction;
     }
 
-    playAttack(name: string, fadeTime: number = 0.2): void {
-        if (!this.playerAnims || this.isDead) return;
-        const clip = THREE.AnimationClip.findByName(this.clips, name);
-        if (!clip) { console.warn(`Attack animation "${name}" not found`); return; }
-        const action = this.playerAnims.clipAction(clip);
-        action.setLoop(THREE.LoopOnce, 1);
-        action.clampWhenFinished = true;
-        if (this.currentAction && this.currentAction !== action) {
-            this.currentAction.fadeOut(fadeTime);
-        }
-        action.reset().fadeIn(fadeTime).play();
-        this.currentAction = action;
-        this.enableAttack();
-        const onFinished = (e: any) => {
-            if (e.action !== action) return;
-            this.disableAttack();
-            this.playerAnims!.removeEventListener('finished', onFinished);
-            this.playAnimation('idle_breathe');
-        };
-        this.playerAnims.addEventListener('finished', onFinished);
-    }
+  
 
     // ── MAIN UPDATE ───────────────────────────────────────────────────────────
 
@@ -631,8 +614,8 @@ export class Human {
             return;
         }
 
-        if (this.playerAnims) this.playerAnims.update(delta);
-        this._updateHitboxes();
+        if (this.playerAnims) {this.playerAnims.update(delta)};
+        this._updateHitboxes(); // update the hitbox to match the mesh"s bone position
 
         const w    = InputManager.isKeyDown("KeyW")  || InputManager.isKeyDown("ArrowUp");
         const s    = InputManager.isKeyDown("KeyS")  || InputManager.isKeyDown("ArrowDown");
@@ -686,8 +669,6 @@ export class Human {
             this.enableRagdoll(new CANNON.Vec3(0, 8, -15));
         }
 
-        if (!moving) return;
-
         this.syncGraphics();
     }
 
@@ -710,8 +691,6 @@ export class Human {
                 this.body.position.z
             );
             this.mesh.getWorldPosition(this.playerPos);
-            window.camera.position.copy(this.playerPos.clone().add(this.cameraOffset));
-            window.camera.lookAt(this.playerPos);
         }
 
         if (this.isDriving) {
@@ -781,7 +760,7 @@ export class Human {
             },
 
             "ATTACK": () => {
-                this.playAttack("flying_kick");
+                this.playAnimation("flying_kick");
             }
         };
     }
