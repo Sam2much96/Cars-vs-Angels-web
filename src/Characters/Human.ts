@@ -74,7 +74,7 @@ export class Human {
     currentAction       : THREE.AnimationAction | null = null;
 
     private vehicle   : Vehicle | null = null;
-    private isDriving : boolean        = false;
+    public  isDriving : boolean        = false;
 
     public playerPos    = new THREE.Vector3();
     public cameraOffset = new THREE.Vector3(2, 1.5, 2);
@@ -90,7 +90,7 @@ export class Human {
     // ── Hitboxes ──────────────────────────────────────────────────────────────
     private hitboxes     : Hitbox[] = [];
     private attackActive : boolean  = false;
-    private debugVisible : boolean  = true;
+    private debugVisible : boolean  = false;
 
     public onHit: ((boneName: string, damage: number, enemyBody: CANNON.Body) => void) | null = null;
 
@@ -113,6 +113,10 @@ export class Human {
 
         InputManager.initialize();
 
+        window.addEventListener('toggle-physics-debug', (e) => {
+            this.setHitboxDebug((e as CustomEvent<boolean>).detail);
+        });
+
         this.ready = new Promise((resolve) => {
             loader.load('./CJ_5.glb',
                 (gltf) => {
@@ -129,6 +133,7 @@ export class Human {
                         }
                     });
 
+                    man.scale.set(1.3, 1.3, 1.3);
                     scene.add(man);
                     this.mesh = man;
 

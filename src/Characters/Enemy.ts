@@ -37,12 +37,13 @@ export class Enemy {
       public AngelMesh: THREE.Object3D  | null = null;
       public body?: CANNON.Body ;
       public isDead : Boolean = false;
-      private radius: number = 1; // fallback default
+      private radius: number = 1;
       public spawnpoint = new THREE.Vector3(-125, 3, 45);
       public ready : Promise<void>;
       public playerAnims  : THREE.AnimationMixer | null = null;
         clips               : THREE.AnimationClip[]       = [];
         currentAction       : THREE.AnimationAction | null = null;
+      private glowLight     : THREE.PointLight | null = null;
 
       constructor(ctx: GameContext = window.ctx) {
         const { scene, world, loader } = ctx;
@@ -55,6 +56,26 @@ export class Enemy {
 
                         this.playerAnims = new THREE.AnimationMixer(this.AngelMesh);
                         this.clips       = gltf.animations;
+
+                        // Emissive glow on all standard materials
+                        this.AngelMesh.traverse((child) => {
+                            if (child instanceof THREE.Mesh) {
+                                const mats = Array.isArray(child.material)
+                                    ? child.material
+                                    : [child.material];
+                                for (const mat of mats) {
+                                    if (mat instanceof THREE.MeshStandardMaterial ||
+                                        mat instanceof THREE.MeshPhongMaterial) {
+                                        mat.emissive.set(0xffe060);
+                                        mat.emissiveIntensity = 0.6;
+                                    }
+                                }
+                            }
+                        });
+
+                        // Pulsing point light that illuminates the surroundings
+                        this.glowLight = new THREE.PointLight(0xffe060, 4, 30);
+                        scene.add(this.glowLight);
 
                         scene.add(this.AngelMesh);
 
@@ -128,6 +149,12 @@ export class Enemy {
         // Sync mesh to physics body
         window.Angel.AngelMesh?.position.copy(window.Angel.body.position);
         window.Angel.AngelMesh?.quaternion.copy(window.Angel.body.quaternion);
+
+        // Sync glow light + pulse
+        if (this.glowLight) {
+            this.glowLight.position.copy(window.Angel.body.position);
+            this.glowLight.intensity = 3 + Math.sin(Date.now() * 0.003) * 1.2;
+        }
 
         // Advance animation mixer
         if (this.playerAnims) this.playerAnims.update(delta);

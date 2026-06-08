@@ -32,10 +32,72 @@ import { createSceneSetup, createLights } from './src/core/scene';
 import { createPhysicsWorld }             from './src/core/physics';
 import type { GameContext }               from './src/core/context';
 import { CameraController }              from './src/Camera/CameraController';
+import { PlayerVoice }                   from './src/Dialogue/VoiceActor';
 
 let fpsDebugEnabled     = false;
 let physicsDebugEnabled = false;
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+let gameOverActive = false;
+
+const VOID_THRESHOLD = -15; // y below this = fallen off map
+
+function triggerGameOver() {
+    if (gameOverActive) return;
+    gameOverActive = true;
+
+    // Teleport player to spawn first so the ragdoll falls visibly on the map,
+    // not in the void. updateWorldMatrix forces bones to recalculate immediately
+    // so enableRagdoll() snaps ragdoll parts to the correct spawn position.
+    if (!window.player.isDriving && !window.player.isDead) {
+        const sp = window.player.spawnPoint;
+        if (window.player.body) {
+            window.player.body.position.set(sp.x, sp.y, sp.z);
+            window.player.body.velocity.set(0, 0, 0);
+            window.player.body.wakeUp();
+        }
+        if (window.player.mesh) {
+            window.player.mesh.position.set(sp.x, sp.y - 0.8, sp.z);
+            window.player.mesh.updateWorldMatrix(true, true);
+        }
+        window.player.takeDamage(1000);
+
+        // Snap camera to look at spawn so the ragdoll is in frame.
+        // Positioned slightly above and behind — camera is then frozen by gameOverActive.
+        camera.position.set(sp.x, sp.y + 5, sp.z - 10);
+        camera.lookAt(sp.x, sp.y + 1, sp.z);
+    }
+
+    uiStore.setHealth(0);
+    window.dispatchEvent(new CustomEvent('game-over'));
+
+    setTimeout(() => {
+        // Force-exit vehicle state
+        if (window.Vehicle.isDriving) {
+            window.Vehicle.isDriving  = false;
+            window.player.isDriving   = false;
+            window.Vehicle.toggleGravity(true);
+        }
+
+        // Reset car to spawn
+        const cs = window.Vehicle.spawnPoint;
+        if (window.Vehicle.carBody) {
+            window.Vehicle.carBody.position.set(cs.x, cs.y, cs.z);
+            window.Vehicle.carBody.velocity.set(0, 0, 0);
+            window.Vehicle.carBody.angularVelocity.set(0, 0, 0);
+            window.Vehicle.vehicle?.applyEngineForce(0, 2);
+            window.Vehicle.vehicle?.applyEngineForce(0, 3);
+            window.Vehicle.carBody.wakeUp();
+        }
+
+        // Reset player
+        window.player.respawn();
+        uiStore.setHealth(100);
+        uiStore.setCash(0);
+
+        gameOverActive = false;
+        window.dispatchEvent(new CustomEvent('game-over-reset'));
+    }, 3000);
+}
 
 
 
@@ -92,6 +154,11 @@ window.Angel   = new Enemy(ctx);
 
 await Promise.all([window.Vehicle.ready, window.player.ready, window.Angel.ready]);
 window.dispatchEvent(new CustomEvent('human-loaded'));
+
+// Intro dialogue — fires after the first user interaction to satisfy autoplay policy
+window.addEventListener('pointerdown', () => {
+    setTimeout(() => PlayerVoice.speak("Oh shit, here we go again."), 500);
+}, { once: true });
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
 const minimap = new Minimap(ctx);
@@ -211,6 +278,18 @@ function animate(timestamp: number = 0) {
     if (window.player)  window.player.update(delta);
     if (window.Angel)   window.Angel.physicsProcess(delta);
 
+    // Void detection — check car and player
+    if (!gameOverActive) {
+        const carY = window.Vehicle.carBody?.position.y ?? 0;
+        // Player body is intentionally parked at y=-1000 while driving — skip that check
+        const playerY = window.player.isDriving
+            ? 0
+            : (window.player.body?.position.y ?? 0);
+        if (carY < VOID_THRESHOLD || playerY < VOID_THRESHOLD) {
+            triggerGameOver();
+        }
+    }
+
     if (window._builtinWater) {
         window._builtinWater.material.uniforms['time'].value += 1 / 60;
     }
@@ -220,11 +299,17 @@ function animate(timestamp: number = 0) {
     const playerPos = window.player.mesh?.position ?? new THREE.Vector3();
     rain.update(delta, playerPos);
 
-    // Camera follows car when driving, player otherwise
-    const cameraTarget = (window.Vehicle?.isDriving && window.Vehicle.carMesh)
-        ? window.Vehicle.carMesh.position
-        : playerPos;
-    cameraController.update(delta, cameraTarget, camera);
+    if (gameOverActive && window.player.mesh) {
+        // Death cam: slowly dolly toward the ragdoll
+        const mp = window.player.mesh.position;
+        camera.position.lerp(new THREE.Vector3(mp.x, mp.y + 2.5, mp.z - 5), 0.04);
+        camera.lookAt(mp.x, mp.y + 1, mp.z);
+    } else if (!gameOverActive) {
+        const cameraTarget = (window.Vehicle?.isDriving && window.Vehicle.carMesh)
+            ? window.Vehicle.carMesh.position
+            : playerPos;
+        cameraController.update(delta, cameraTarget, camera);
+    }
 
     minimap.update(playerPos, blips);
     missions.update(delta, playerPos);

@@ -74,7 +74,11 @@ export class MissionManager {
             this.hud.setMission(null);
             this.active = null;
 
-            // Keep markers visible so the player can retry
+            // Re-show markers so the player can retry
+            for (const m of this.markers) {
+                if (m.id === mission.id) m.setVisible(true);
+            }
+
             this.onMissionFail?.(record);
         };
     }
@@ -109,6 +113,12 @@ export class MissionManager {
         this.active = mission;
         mission.start();
         this.hud.setMission(mission);
+
+        // Hide marker while mission is active
+        for (const m of this.markers) {
+            if (m.id === id) m.setVisible(false);
+        }
+
         return true;
     }
 

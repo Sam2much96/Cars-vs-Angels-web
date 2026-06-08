@@ -19,6 +19,7 @@ import { VirtualJoystickOverlay, CameraJoystickOverlay } from '../UI/Inputs/Virt
 import { VirtualButton } from '../UI/Inputs/VirtualButton.tsx';
 import { TitleScreen } from './TitleScreen.tsx';
 import { PauseMenu }   from './PauseMenu.tsx';
+import { GameOver }    from './GameOver.tsx';
 import './styles/styles.css';
 
 const inventory = new Inventory();
@@ -88,6 +89,7 @@ export default function UI() {
             {/* Title screen — sits above everything, removes itself once Human loads */}
             <TitleScreen />
             <PauseMenu />
+            <GameOver />
 
             <div id="clock">{time}</div>
             <div id="cash">${cash.toLocaleString()}</div>

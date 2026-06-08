@@ -81,8 +81,8 @@ export function PauseMenu() {
                 onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); toggle(); }}
                 style={{
                     position:       'fixed',
-                    top:            '140px',
-                    right:          '10px',
+                    top:            '16px',
+                    left:           '16px',
                     width:          '44px',
                     height:         '44px',
                     background:     'rgba(0,0,0,0.6)',

@@ -13,6 +13,7 @@
  */
 
 import * as THREE from 'three';
+import { Howl } from 'howler';
 import type { GameContext } from '../core/context';
 
 const DOT_OPACITY    = 0.55;
@@ -43,6 +44,13 @@ export class Rain {
 
     // 0 = no rain, 1 = full heavy rain with streaks
     public intensity = 0;
+
+    private readonly sfx = new Howl({
+        src:      ['./rain_loop.ogg'],
+        loop:     true,
+        volume:   0,
+        autoplay: false,
+    });
 
     constructor(ctx: GameContext, count = 5000) {
         const { scene } = ctx;
@@ -169,6 +177,10 @@ export class Rain {
         if (this.intensity <= 0) {
             this.pointsMesh.visible = false;
             this.streakMesh.visible = false;
+            if (this.sfx.playing()) this.sfx.fade(this.sfx.volume(), 0, 500);
+        } else {
+            if (!this.sfx.playing()) this.sfx.play();
+            this.sfx.volume(this.intensity * 0.6); // max volume 0.6
         }
     }
 }
