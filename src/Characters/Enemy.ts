@@ -52,7 +52,10 @@ export class Enemy {
                     (gltf) => {
                         this.AngelMesh = gltf.scene;
                         console.log("angel animation debug:", gltf.animations.map(a => a.name));
-                        
+
+                        this.playerAnims = new THREE.AnimationMixer(this.AngelMesh);
+                        this.clips       = gltf.animations;
+
                         scene.add(this.AngelMesh);
 
                             // Compute bounding box of the whole model
@@ -119,14 +122,17 @@ export class Enemy {
         //}
     }
     
-    physicsProcess(){
-        // sync angel mesh's position and rotation to the collision object's position & rotation
+    physicsProcess(delta: number){
         if (!window.Angel || !window.Angel.body) return;
+
+        // Sync mesh to physics body
         window.Angel.AngelMesh?.position.copy(window.Angel.body.position);
         window.Angel.AngelMesh?.quaternion.copy(window.Angel.body.quaternion);
 
-          //play the default angel animation
-        //this.State()["FLOATING"]();
+        // Advance animation mixer
+        if (this.playerAnims) this.playerAnims.update(delta);
+
+        // Play default floating animation — name logged to console on load
         this.playAnimation("Armature.001|Armature.001|Armature.002Action.002");
     }
 

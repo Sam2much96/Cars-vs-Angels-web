@@ -6,12 +6,17 @@ export function createSceneSetup() {
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 6);
 
-    const renderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true, antialias: true });
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+    const renderer = new THREE.WebGLRenderer({
+        preserveDrawingBuffer: true,
+        antialias: !isMobile,   // antialias is ~30% GPU overhead — skip on mobile
+    });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = !isMobile; // shadows off on mobile
+    renderer.shadowMap.type = THREE.BasicShadowMap; // cheaper than PCFSoftShadowMap on desktop
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+    renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 1.5));
     document.body.appendChild(renderer.domElement);
 
     window.addEventListener('resize', () => {

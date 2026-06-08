@@ -24,10 +24,33 @@ export class Minimap {
   private mapSize  = 200;   // px — diameter of the circle
   private mapRange = 150;   // world units visible from center outward
 
+  // Pre-allocated read-back resources — never recreated per frame
+  private readonly TEX_SIZE: number;
+  private readonly readCanvas: HTMLCanvasElement;
+  private readonly readCtx:    CanvasRenderingContext2D;
+  private readonly readBuffer: Uint8Array;
+
+  // Throttle: only re-render the scene texture every N frames
+  private frameCount   = 0;
+  private readonly RENDER_EVERY: number;
+
   constructor(ctx: GameContext = window.ctx) {
     const { renderer, scene } = ctx;
     this.renderer = renderer;
     this.scene    = scene;
+
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+    // Lower resolution on mobile — 128² is plenty for a 200px circle
+    this.TEX_SIZE     = isMobile ? 128 : 256;
+    this.RENDER_EVERY = isMobile ? 6   : 2;   // frames between full redraws
+
+    // Pre-allocate once — avoids 1 MB garbage per frame from the old code
+    this.readCanvas        = document.createElement('canvas');
+    this.readCanvas.width  = this.TEX_SIZE;
+    this.readCanvas.height = this.TEX_SIZE;
+    this.readCtx           = this.readCanvas.getContext('2d')!;
+    this.readBuffer        = new Uint8Array(this.TEX_SIZE * this.TEX_SIZE * 4);
 
     // Orthographic camera looking straight down
     const r = this.mapRange;
@@ -35,8 +58,8 @@ export class Minimap {
     this.orthoCamera.rotation.x = -Math.PI / 2;
     this.orthoCamera.up.set(0, 0, -1); // top of map = north
 
-    // Render target — scene renders into this texture
-    this.renderTarget = new THREE.WebGLRenderTarget(512, 512, {
+    // Render target at reduced resolution
+    this.renderTarget = new THREE.WebGLRenderTarget(this.TEX_SIZE, this.TEX_SIZE, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
     });
@@ -93,43 +116,39 @@ export class Minimap {
     playerPosition: THREE.Vector3,
     blips: { position: THREE.Vector3; color: string }[] = [],
   ) {
-    // Position ortho camera directly above the player
-    this.orthoCamera.position.set(
-      playerPosition.x,
-      playerPosition.y + 200,
-      playerPosition.z,
-    );
-    this.orthoCamera.lookAt(playerPosition.x, playerPosition.y, playerPosition.z);
+    this.frameCount++;
 
-    // Render scene into render target
-    const prevTarget = this.renderer.getRenderTarget();
-    this.renderer.setRenderTarget(this.renderTarget);
-    this.renderer.render(this.scene, this.orthoCamera);
-    this.renderer.setRenderTarget(prevTarget);
+    // ── Expensive GPU work — throttled to every RENDER_EVERY frames ───────────
+    if (this.frameCount % this.RENDER_EVERY === 0) {
+      const S = this.TEX_SIZE;
 
-    // Copy render target pixels to a temp canvas and push to img element
-    // We use a hidden canvas to read back the texture
-    const readCanvas = document.createElement('canvas');
-    readCanvas.width  = 512;
-    readCanvas.height = 512;
-    const readCtx = readCanvas.getContext('2d')!;
-    const buffer  = new Uint8Array(512 * 512 * 4);
-    this.renderer.readRenderTargetPixels(this.renderTarget, 0, 0, 512, 512, buffer);
+      // Move ortho camera above player
+      this.orthoCamera.position.set(playerPosition.x, playerPosition.y + 200, playerPosition.z);
+      this.orthoCamera.lookAt(playerPosition.x, playerPosition.y, playerPosition.z);
 
-    const imageData = readCtx.createImageData(512, 512);
-    // WebGL renders bottom-up — flip vertically
-    for (let y = 0; y < 512; y++) {
-      for (let x = 0; x < 512; x++) {
-        const src = ((511 - y) * 512 + x) * 4;
-        const dst = (y * 512 + x) * 4;
-        imageData.data[dst]     = buffer[src];
-        imageData.data[dst + 1] = buffer[src + 1];
-        imageData.data[dst + 2] = buffer[src + 2];
-        imageData.data[dst + 3] = buffer[src + 3];
+      // Render scene into render target
+      const prevTarget = this.renderer.getRenderTarget();
+      this.renderer.setRenderTarget(this.renderTarget);
+      this.renderer.render(this.scene, this.orthoCamera);
+      this.renderer.setRenderTarget(prevTarget);
+
+      // Read pixels into pre-allocated buffer (no allocation here)
+      this.renderer.readRenderTargetPixels(this.renderTarget, 0, 0, S, S, this.readBuffer);
+
+      // Flip vertically (WebGL is bottom-up) into pre-allocated canvas
+      const imageData = this.readCtx.createImageData(S, S);
+      const Sm1 = S - 1;
+      for (let y = 0; y < S; y++) {
+        const srcRow = (Sm1 - y) * S * 4;
+        const dstRow = y * S * 4;
+        for (let x = 0; x < S * 4; x++) {
+          imageData.data[dstRow + x] = this.readBuffer[srcRow + x];
+        }
       }
+      this.readCtx.putImageData(imageData, 0, 0);
+      (document.getElementById('minimap-img') as HTMLImageElement).src =
+        this.readCanvas.toDataURL();
     }
-    readCtx.putImageData(imageData, 0, 0);
-    (document.getElementById('minimap-img') as HTMLImageElement).src = readCanvas.toDataURL();
 
     // Draw blips on the overlay canvas
     const ctx  = this.ctx;

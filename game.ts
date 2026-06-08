@@ -11,7 +11,8 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import CannonDebugger from 'cannon-es-debugger';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+
 
 import './src/UI/ui-mount.tsx';
 import { uiStore }         from './src/UI/ui-score';
@@ -32,7 +33,11 @@ import { createPhysicsWorld }             from './src/core/physics';
 import type { GameContext }               from './src/core/context';
 import { CameraController }              from './src/Camera/CameraController';
 
-const DEBUG = true;
+let fpsDebugEnabled     = false;
+let physicsDebugEnabled = false;
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 uiStore.setCash(0);
@@ -54,10 +59,14 @@ const { ambientLight, dirLight } = createLights(scene);
 // ── Physics ───────────────────────────────────────────────────────────────────
 const world = createPhysicsWorld();
 window.world = world;
-const cannonDebugger = CannonDebugger(scene, world);
+const debugGroup = new THREE.Group();
+debugGroup.visible = false;
+scene.add(debugGroup);
+const cannonDebugger = (await import('cannon-es-debugger')).default(debugGroup as unknown as THREE.Scene, world);
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 window.loader = new GLTFLoader();
+window.loader.setMeshoptDecoder(MeshoptDecoder);
 
 // ── GameContext — single object passed to every system ────────────────────────
 const ctx: GameContext = { scene, world, loader: window.loader, camera, renderer };
@@ -68,7 +77,7 @@ const cycle = new DayNightCycle(scene, dirLight, ambientLight, renderer);
 await cycle.loadHDRs();
 cycle.dayDuration = 300;
 
-const rain = new Rain(ctx);
+const rain = new Rain(ctx, isMobile ? 1500 : 5000);
 cycle.setRain(rain);
 
 // ── Level ─────────────────────────────────────────────────────────────────────
@@ -111,13 +120,63 @@ fpsDisplay.style.cssText = `
     background: rgba(0,0,0,0.5); padding: 4px 8px;
     border-radius: 4px; z-index: 9999; pointer-events: none;
 `;
+fpsDisplay.style.display = 'none'; // hidden until toggled on
 document.body.appendChild(fpsDisplay);
 let fpsTimer = 0;
 let fpsCount = 0;
 
+// ── Debug / Save / Load events (driven by PauseMenu) ──────────────────────────
+window.addEventListener('toggle-fps-debug',     (e) => {
+    fpsDebugEnabled = (e as CustomEvent<boolean>).detail;
+    fpsDisplay.style.display = fpsDebugEnabled ? 'block' : 'none';
+});
+
+window.addEventListener('toggle-physics-debug', (e) => {
+    physicsDebugEnabled = (e as CustomEvent<boolean>).detail;
+    debugGroup.visible  = physicsDebugEnabled;
+});
+
+window.addEventListener('save-game', () => {
+    const data = {
+        cash:      uiStore.getCash(),
+        health:    uiStore.getHealth(),
+        playerPos: window.player.body
+            ? { x: window.player.body.position.x, y: window.player.body.position.y, z: window.player.body.position.z }
+            : null,
+        vehiclePos: window.Vehicle.carBody
+            ? { x: window.Vehicle.carBody.position.x, y: window.Vehicle.carBody.position.y, z: window.Vehicle.carBody.position.z }
+            : null,
+    };
+    localStorage.setItem('cva-save', JSON.stringify(data));
+    console.log('Game saved');
+});
+
+window.addEventListener('load-game', () => {
+    const raw = localStorage.getItem('cva-save');
+    if (!raw) return;
+    try {
+        const data = JSON.parse(raw);
+        uiStore.setCash(data.cash);
+        uiStore.setHealth(data.health);
+        if (data.playerPos && window.player.body) {
+            window.player.body.position.set(data.playerPos.x, data.playerPos.y, data.playerPos.z);
+            window.player.body.velocity.set(0, 0, 0);
+            window.player.body.wakeUp();
+        }
+        if (data.vehiclePos && window.Vehicle.carBody) {
+            window.Vehicle.carBody.position.set(data.vehiclePos.x, data.vehiclePos.y, data.vehiclePos.z);
+            window.Vehicle.carBody.velocity.set(0, 0, 0);
+            window.Vehicle.carBody.angularVelocity.set(0, 0, 0);
+            window.Vehicle.carBody.wakeUp();
+        }
+        console.log('Game loaded');
+    } catch {
+        console.error('Failed to load save data');
+    }
+});
+
 // ── Game loop ─────────────────────────────────────────────────────────────────
 const clock      = new THREE.Clock();
-const isMobile   = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 const physicsStep   = isMobile ? 1 / 30 : 1 / 60;
 const frameInterval = 1000 / (isMobile ? 30 : 60);
 let lastFrameTime = 0;
@@ -150,13 +209,13 @@ function animate(timestamp: number = 0) {
 
     if (window.Vehicle) window.Vehicle.physicsUpdate();
     if (window.player)  window.player.update(delta);
-    if (window.Angel)   window.Angel.physicsProcess();
+    if (window.Angel)   window.Angel.physicsProcess(delta);
 
     if (window._builtinWater) {
         window._builtinWater.material.uniforms['time'].value += 1 / 60;
     }
 
-    if (DEBUG) cannonDebugger.update();
+    if (physicsDebugEnabled) cannonDebugger?.update();
 
     const playerPos = window.player.mesh?.position ?? new THREE.Vector3();
     rain.update(delta, playerPos);
