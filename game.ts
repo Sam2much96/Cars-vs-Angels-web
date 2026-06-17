@@ -27,6 +27,7 @@ import { Waters }          from './src/Level/water';
 import { Minimap }         from './src/Minimap/Minimap.ts';
 import { MissionManager }  from './src/Missions/MissionManager';
 import { AngelChaseMission } from './src/Missions/AngelChaseMission';
+import { ScoutMission }      from './src/Missions/ScoutMission';
 import { Rain } from './src/Level/Rain';
 import { createSceneSetup, createLights } from './src/core/scene';
 import { createPhysicsWorld }             from './src/core/physics';
@@ -175,6 +176,11 @@ const angelChase = new AngelChaseMission();
 missions.register(angelChase);
 // Yellow marker placed a few steps in front of the player spawn
 missions.addMarker('angel-chase-1', new THREE.Vector3(-118, 1, 22), 'Hunt the Angel');
+
+const scoutCity = new ScoutMission();
+missions.register(scoutCity);
+// Blue marker offset from the angel-chase marker so both are reachable
+missions.addMarker('scout-city-1', new THREE.Vector3(-108, 1, 30), 'Scout the City', 0x00ccff);
 
 // ── Camera ────────────────────────────────────────────────────────────────────
 const cameraController = new CameraController();
