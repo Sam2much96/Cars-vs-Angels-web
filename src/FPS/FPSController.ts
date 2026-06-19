@@ -397,6 +397,25 @@ export class FPSController {
             }
             if (hitAngel) continue;
 
+            // ── NPC hits: same ray-sphere test ────────────────────────────────
+            let hitNPC = false;
+            for (const npc of (window.npcs ?? [])) {
+                if (!npc.body || npc.isDead) continue;
+                const np = new THREE.Vector3(npc.body.position.x, npc.body.position.y, npc.body.position.z);
+                const t  = Math.max(0, np.clone().sub(camPos).dot(spreadDir));
+                const closest = camPos.clone().addScaledVector(spreadDir, t);
+                if (closest.distanceTo(np) < 1.2 && t < cfg.maxDistance) {
+                    this.hitMarkerTimer = 0.18;
+                    window.dispatchEvent(new CustomEvent('npc-hit', {
+                        detail: { id: npc.id, damage: cfg.damage, dir: { x: spreadDir.x, y: spreadDir.y, z: spreadDir.z } },
+                    }));
+                    this._spawnImpact(closest, closest.clone().sub(np).normalize());
+                    hitNPC = true;
+                    break;
+                }
+            }
+            if (hitNPC) continue;
+
             // ── World geometry hit ────────────────────────────────────────────
             this.raycaster.set(camPos, spreadDir);
             const hits = this.raycaster.intersectObjects(this.ctx.scene.children, true);

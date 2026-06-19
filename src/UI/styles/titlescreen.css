@@ -28,15 +28,17 @@
 
 /* ── Car art background — full width, bottom-anchored, throbs */
 .title-car-art {
-    position:  absolute;
-    bottom:    -2%;
-    left:      50%;
-    transform: translateX(-50%);
-    width:     min(90vw, 780px);
-    height:    auto;
-    z-index:   0;
+    position:    absolute;
+    bottom:      -2vh;
+    left:        50%;
+    width:       min(90vw, 780px);
+    height:      auto;
+    z-index:     0;
+    opacity:     0;          /* explicit start; carSlideIn brings it to 1 via forwards fill */
+    transform:   translateX(-50%);
+    will-change: transform, opacity;
     animation:
-        carSlideIn 1s cubic-bezier(0.22, 1, 0.36, 1) both,
+        carSlideIn 1s cubic-bezier(0.22, 1, 0.36, 1) forwards,
         carThrob   3s ease-in-out 1s infinite;
 }
 
@@ -171,12 +173,6 @@
 }
 
 @keyframes carThrob {
-    0%, 100% {
-        transform: translateX(-50%) scale(1);
-        opacity:   1;
-    }
-    50% {
-        transform: translateX(-50%) scale(1.04);
-        opacity:   0.85;
-    }
+    0%, 100% { transform: translateX(-50%) scale(1);    }
+    50%       { transform: translateX(-50%) scale(1.04); }
 }

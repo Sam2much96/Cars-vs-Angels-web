@@ -171,24 +171,19 @@ export function FPSOverlay() {
                 ✕
             </button>
 
-            {/* Weapon name + control hints — bottom right */}
+            {/* Weapon name — bottom right */}
             <div style={{
-                position:    'absolute',
-                bottom:      '88px',
-                right:       '24px',
-                textAlign:   'right',
-                fontFamily:  'monospace',
-                fontSize:    '13px',
-                color:       'rgba(255,255,255,0.75)',
-                textShadow:  '1px 1px 3px #000',
-                lineHeight:  '1.6',
+                position:   'absolute',
+                bottom:     '280px',
+                right:      '24px',
+                textAlign:  'right',
+                fontFamily: 'monospace',
+                fontSize:   '15px',
+                fontWeight: 'bold',
+                color:      'rgba(255,255,255,0.75)',
+                textShadow: '1px 1px 3px #000',
             }}>
-                <div style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '4px' }}>
-                    {state.weaponName}
-                </div>
-                <div style={{ opacity: 0.55 }}>LMB — shoot</div>
-                <div style={{ opacity: 0.55 }}>Q — switch weapon</div>
-                <div style={{ opacity: 0.55 }}>V — exit FPS</div>
+                {state.weaponName}
             </div>
         </div>
     );

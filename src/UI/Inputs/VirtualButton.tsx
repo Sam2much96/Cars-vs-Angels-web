@@ -1,14 +1,14 @@
 import { useState } from "react";
 
 interface VirtualButtonProps {
-    label: string;
-    bottom?: string;
-    right?: string;
+    label:   string;
+    top?:    string;
+    left?:   string;
     onClick: () => void;
 }
 
-export function VirtualButton({ label, bottom = "60px", right = "60px", onClick }: VirtualButtonProps) {
-    
+export function VirtualButton({ label, top = "0px", left = "0px", onClick }: VirtualButtonProps) {
+
     const [pressed, setPressed] = useState(false);
 
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -16,19 +16,9 @@ export function VirtualButton({ label, bottom = "60px", right = "60px", onClick 
         setPressed(true);
         onClick();
     };
-
-    const handleTouchEnd = () => {
-        setPressed(false);
-    };
-
-    const handleMouseDown = () => {
-        setPressed(true);
-        onClick();
-    };
-
-    const handleMouseUp = () => {
-        setPressed(false);
-    };
+    const handleTouchEnd   = () => setPressed(false);
+    const handleMouseDown  = () => { setPressed(true); onClick(); };
+    const handleMouseUp    = () => setPressed(false);
 
     return (
         <button
@@ -38,26 +28,24 @@ export function VirtualButton({ label, bottom = "60px", right = "60px", onClick 
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             style={{
-                position:       "fixed",
-                bottom,
-                right,
-                width:          "70px",
-                height:         "70px",
+                position:       "absolute",
+                top,
+                left,
+                width:          "60px",
+                height:         "60px",
                 borderRadius:   "50%",
-                background:     "rgba(255,255,255,0.15)",
-                border:         "2px solid rgba(255,255,255,0.5)",
+                background:     "rgba(0,0,0,0.45)",
+                border:         "2px solid rgba(255,255,255,0.6)",
                 color:          "white",
-                fontSize:       "13px",
+                fontSize:       "12px",
                 fontWeight:     "bold",
                 letterSpacing:  "1px",
                 cursor:         "pointer",
                 pointerEvents:  "all",
-                backdropFilter: "blur(4px)",
+                backdropFilter: "blur(3px)",
                 userSelect:     "none",
                 touchAction:    "none",
-                zIndex:         10,
-                // ✅ fade in/out based on pressed state
-                opacity:        pressed ? 1 : 0.4,
+                opacity:        pressed ? 1.0 : 0.7,
                 transition:     "opacity 0.15s ease",
             }}
         >

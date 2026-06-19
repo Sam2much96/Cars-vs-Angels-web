@@ -27,12 +27,17 @@ import { Minimap }         from './src/Minimap/Minimap.ts';
 import { MissionManager }  from './src/Missions/MissionManager';
 import { AngelChaseMission } from './src/Missions/AngelChaseMission';
 import { ScoutMission }      from './src/Missions/ScoutMission';
-import { Rain } from './src/Level/Rain';
+import { KillNPCsMission }   from './src/Missions/KillNPCsMission';
+import { Rain }  from './src/Level/Rain';
+import { Birds } from './src/Level/Birds';
+import { Gems }  from './src/Level/Gems';
+import { NPC }   from './src/Characters/NPC';
 import { createSceneSetup, createLights } from './src/core/scene';
 import { createPhysicsWorld }             from './src/core/physics';
 import type { GameContext }               from './src/core/context';
 import { CameraController }              from './src/Camera/CameraController';
 import { PlayerVoice }                   from './src/Dialogue/VoiceActor';
+import { Howler }                        from 'howler';
 import { FPSController }                 from './src/FPS/FPSController';
 import { NavGrid }                       from './src/Nav/NavGrid';
 import { KillAllAngelsMission }          from './src/Missions/KillAllAngelsMission';
@@ -142,7 +147,9 @@ const cycle = new DayNightCycle(scene, dirLight, ambientLight, renderer);
 await cycle.loadHDRs();
 cycle.dayDuration = 300;
 
-const rain = new Rain(ctx, isMobile ? 1500 : 5000);
+const rain  = new Rain(ctx, isMobile ? 1500 : 5000);
+const birds = new Birds(ctx);
+const gems  = new Gems(ctx);
 cycle.setRain(rain);
 
 // ── Level ─────────────────────────────────────────────────────────────────────
@@ -154,11 +161,27 @@ new Waters(ctx);
 window.Vehicle = new Vehicle(ctx);
 window.player  = new Human(ctx);
 window.angels  = [];
+window.npcs    = [];
 
 await Promise.all([window.Vehicle.ready, window.player.ready, buildings.ready]);
 
 // Build nav grid from building collision boxes
 const navGrid = new NavGrid(buildings.colBoxes);
+
+// ── NPCs ──────────────────────────────────────────────────────────────────────
+const NPC_SPAWNS = [
+    new THREE.Vector3( -90,  2,  40),
+    new THREE.Vector3(  20,  2, -20),
+    new THREE.Vector3( -50,  2, -60),
+    new THREE.Vector3(  60,  2,  30),
+    new THREE.Vector3( -30,  2,  70),
+    new THREE.Vector3(  10,  2,  50),
+];
+for (const pos of NPC_SPAWNS) {
+    const npc = new NPC(ctx, navGrid.snapToWalkable(pos));
+    npc.ready.then(() => { npc.setNavGrid(navGrid); });
+    window.npcs.push(npc);
+}
 window.dispatchEvent(new CustomEvent('human-loaded'));
 
 // Intro dialogue — fires after the first user interaction to satisfy autoplay policy
@@ -180,10 +203,18 @@ const purgeAngels = new KillAllAngelsMission(ctx, navGrid);
 missions.register(purgeAngels);
 missions.addMarker('kill-all-angels', new THREE.Vector3(-105, 1, 22), 'Purge the Angels', 0xff4400);
 
+const killNPCs = new KillNPCsMission();
+missions.register(killNPCs);
+missions.addMarker('kill-npcs', new THREE.Vector3(-118, 1, 30), 'Eliminate Targets', 0xff0055);
+
 const scoutCity = new ScoutMission(navGrid);
 missions.register(scoutCity);
 // Blue marker offset from the angel-chase marker so both are reachable
 missions.addMarker('scout-city-1', new THREE.Vector3(-108, 1, 30), 'Scout the City', 0x00ccff);
+
+// ── Ads — mute/unmute in response to events fired by the inline SDK in index.html
+window.addEventListener('gm-ad-pause',  () => Howler.volume(0));
+window.addEventListener('gm-ad-resume', () => Howler.volume(1));
 
 // ── Camera ────────────────────────────────────────────────────────────────────
 const cameraController = new CameraController();
@@ -293,9 +324,10 @@ function animate(timestamp: number = 0) {
     cycle.update(delta);
     world.step(physicsStep);
 
-    if (window.Vehicle) window.Vehicle.physicsUpdate();
+    if (window.Vehicle) window.Vehicle.physicsUpdate(delta);
     if (window.player)  window.player.update(delta);
     for (const angel of window.angels) angel.physicsProcess(delta);
+    for (const npc   of window.npcs)   npc.update(delta);
     if (fpsController.active) fpsController.update(delta);
 
     // Void detection — check car and player
@@ -320,6 +352,8 @@ function animate(timestamp: number = 0) {
         ? window.Vehicle.carMesh.position
         : window.player.mesh?.position ?? new THREE.Vector3();
     rain.update(delta, playerPos);
+    birds.update(delta);
+    gems.update(delta, scene);
 
     if (gameOverActive && window.player.mesh) {
         // Death cam: slowly dolly toward the ragdoll
@@ -339,6 +373,10 @@ function animate(timestamp: number = 0) {
         { position: window.player.mesh!.position,     color: '#44aaff' },
         ...window.angels.filter(a => a.AngelMesh && !a.isDead)
                         .map(a => ({ position: a.AngelMesh!.position, color: '#eeff33' })),
+        ...(killNPCs.isActive
+            ? window.npcs.filter(n => !n.isDead && n.mesh)
+                         .map(n => ({ position: n.mesh!.position, color: '#ff66aa' }))
+            : []),
     ]);
     missions.update(delta, playerPos);
 

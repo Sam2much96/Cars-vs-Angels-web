@@ -65,9 +65,11 @@ export class Vehicle {
     public meshRotationOffset : THREE.Quaternion
 
     //driving controls
-    public maxSteerVal = 0.5
-    public maxForce = 5000        // scaled 2.5× with mass
-    public brakeForce = 1000000
+    public maxSteerVal  = 0.6          // wider max angle for tighter corners
+    public maxForce     = 5000
+    public brakeForce   = 1000000
+    private currentSteer = 0           // smoothly interpolated steer angle
+    private readonly steerSpeed = 5.0  // how fast the wheel turns (rad/s-ish)
 
     // flying controls
     public thrust = 12500;  // forward/back — scaled 2.5× with mass
@@ -201,9 +203,9 @@ export class Vehicle {
                 const wheelOptions = {
                     radius: 0.6,
                     directionLocal: new CANNON.Vec3(0, -1, 0),
-                    suspensionStiffness: 75,       // 2.5× — prevents chassis sag at higher mass
+                    suspensionStiffness: 55,
                     suspensionRestLength: 0.3,
-                    frictionSlip: 1,
+                    frictionSlip: 1.8,
                     dampingRelaxation: 2.3,
                     dampingCompression: 4.4,
                     maxSuspensionForce: 250000,    // 2.5× — handles the heavier chassis weight
@@ -316,7 +318,7 @@ export class Vehicle {
     }
 
 
-    physicsUpdate(): void {
+    physicsUpdate(delta = 0.016): void {
     {
     /**
      * 
@@ -408,22 +410,11 @@ export class Vehicle {
             this.State()["YEW_UP"]();
         }
     }
-    if (InputManager.isKeyDown("KeyA") || InputManager.isKeyDown("ArrowLeft") || axis.x < -0.2) {
-        if (this.isGravity()) {
-            this.State()["STEER_LEFT"]();
-        }
-        if (!this.isGravity()) {
-            this.State()["YEW_LEFT"]();
-        }
-    }
-    if (InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight") || axis.x > 0.2) {
-        if (this.isGravity()) {
-            this.State()["STEER_RIGHT"]();
-        }
-        if (!this.isGravity()) {
-            this.State()["YEW_RIGHT"]();
-        }
-    }
+    const steerLeft  = InputManager.isKeyDown("KeyA") || InputManager.isKeyDown("ArrowLeft")  || axis.x < -0.2;
+    const steerRight = InputManager.isKeyDown("KeyD") || InputManager.isKeyDown("ArrowRight") || axis.x >  0.2;
+
+    if (steerLeft  && !this.isGravity()) this.State()["YEW_LEFT"]();
+    if (steerRight && !this.isGravity()) this.State()["YEW_RIGHT"]();
     if (InputManager.isKeyDown("Space")) {
         this.State()["BRAKE"]();
     }
@@ -444,10 +435,12 @@ export class Vehicle {
         this.vehicle?.applyEngineForce(0, 2);
         this.vehicle?.applyEngineForce(0, 3);
     }
-    if (!InputManager.isKeyDown("KeyA") && !InputManager.isKeyDown("ArrowLeft") && axis.x >= -0.2
-     && !InputManager.isKeyDown("KeyD") && !InputManager.isKeyDown("ArrowRight") && axis.x <= 0.2) {
-        this.vehicle?.setSteeringValue(0, 0);
-        this.vehicle?.setSteeringValue(0, 1);
+    // Smoothly interpolate steering toward target angle
+    if (this.isGravity()) {
+        const targetSteer = steerLeft ? this.maxSteerVal : steerRight ? -this.maxSteerVal : 0;
+        this.currentSteer += (targetSteer - this.currentSteer) * Math.min(1, this.steerSpeed * delta);
+        this.vehicle?.setSteeringValue(this.currentSteer, 0);
+        this.vehicle?.setSteeringValue(this.currentSteer, 1);
     }
 
     // Reset Input Manager's state

@@ -2,6 +2,7 @@
 import type { Vehicle } from './src/Vehicle/Vehicle';
 import {Human} from "./src/Characters/Human";
 import type { Enemy } from "./src/Characters/Enemy";
+import type { NPC }   from "./src/Characters/NPC";
 import type { Music } from './src/Music/Music';
 import type * as THREE from 'three';
 import type * as CANNON from 'cannon-es';
@@ -13,6 +14,7 @@ declare global {
     ctx: GameContext;
     Vehicle: Vehicle;
     angels: Enemy[];
+    npcs:   NPC[];
     player : Human;
     music: Music;
     scene: THREE.Scene;

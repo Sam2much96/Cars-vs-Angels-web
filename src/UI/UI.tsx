@@ -114,15 +114,27 @@ export default function UI() {
             <VirtualJoystickOverlay />
             <CameraJoystickOverlay />
 
-            {/* FPS joysticks + GTA buttons hidden while in FPS mode */}
-            {!inFPS && <VirtualButton label="Enter" onClick={handleInteract} />}
-            {!inFPS && <VirtualButton label="FPS" onClick={handleFPSToggle} bottom="230px" right="16px" />}
-
-            {inVehicle && !inFPS && (
-                <>
-                    <VirtualButton label="Fly"  onClick={handleGravityOff} bottom="160px" right="60px"  />
-                    <VirtualButton label="Land" onClick={handleGravityOn}  bottom="160px" right="150px" />
-                </>
+            {/* Circular action-button cluster — bottom-right corner */}
+            {!inFPS && (
+                <div style={{
+                    position:      'fixed',
+                    bottom:        '10px',
+                    right:         '10px',
+                    width:         '200px',
+                    height:        '200px',
+                    pointerEvents: 'none',
+                    zIndex:        10,
+                }}>
+                    {/* Circle: centre (100,100), r=65. Button 60px → offset -30 to centre.
+                        FPS   top:  5px  left: 70px  (top    of circle)
+                        Enter top: 70px  left:135px  (right  of circle)
+                        Fly   top: 70px  left:  5px  (left   of circle)
+                        Land  top:135px  left: 70px  (bottom of circle) */}
+                    <VirtualButton label="FPS"   top="5px"   left="70px"  onClick={handleFPSToggle}  />
+                    <VirtualButton label="Enter" top="70px"  left="135px" onClick={handleInteract}   />
+                    {inVehicle && <VirtualButton label="Fly"  top="70px"  left="5px"  onClick={handleGravityOff} />}
+                    {inVehicle && <VirtualButton label="Land" top="135px" left="70px" onClick={handleGravityOn}  />}
+                </div>
             )}
         </>
     );
