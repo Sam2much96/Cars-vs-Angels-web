@@ -12,7 +12,7 @@ declare global {
   interface Window {
     ctx: GameContext;
     Vehicle: Vehicle;
-    Angel: Enemy;
+    angels: Enemy[];
     player : Human;
     music: Music;
     scene: THREE.Scene;

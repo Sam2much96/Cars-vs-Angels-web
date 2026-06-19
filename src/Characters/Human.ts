@@ -75,6 +75,8 @@ export class Human {
 
     private vehicle   : Vehicle | null = null;
     public  isDriving : boolean        = false;
+    // Set to true by FPSController to suppress GTA input while FPS mode is active
+    public  fpsControlled : boolean    = false;
 
     public playerPos    = new THREE.Vector3();
     public cameraOffset = new THREE.Vector3(2, 1.5, 2);
@@ -616,6 +618,14 @@ export class Human {
         // If dead, only update ragdoll debug meshes — nothing else
         if (this.isDead) {
             this._updateRagdoll();
+            return;
+        }
+
+        // FPS mode: keep animation + hitboxes alive, skip GTA input and mesh sync
+        // (FPSController positions the camera directly from body; mesh is hidden)
+        if (this.fpsControlled) {
+            this.playerAnims?.update(delta);
+            this._updateHitboxes();
             return;
         }
 

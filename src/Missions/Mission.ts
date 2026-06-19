@@ -16,6 +16,16 @@ export interface MissionObjective {
   completed: boolean;
 }
 
+let _jingle: HTMLAudioElement | null = null;
+
+function _playPassedJingle(): void {
+  if (_jingle && !_jingle.paused) return;
+  if (!_jingle) _jingle = new Audio('./yekm_gta_sa.ogg');
+  _jingle.volume = 1.0;
+  _jingle.currentTime = 0;
+  _jingle.play().catch(() => {});
+}
+
 export abstract class Mission {
   // Identity
   readonly id:     string;
@@ -100,6 +110,7 @@ export abstract class Mission {
     if (this.status !== 'active') return;
     this.status = 'complete';
     this.onEnd();
+    _playPassedJingle();
     this.onComplete?.();
   }
 

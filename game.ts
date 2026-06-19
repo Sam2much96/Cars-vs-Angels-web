@@ -19,7 +19,6 @@ import { uiStore }         from './src/UI/ui-score';
 import { Music }           from './src/Music/Music';
 import { DayNightCycle }   from './src/Level/Daynightcycle.ts';
 import { Vehicle }         from './src/Vehicle/Vehicle';
-import { Enemy }           from './src/Characters/Enemy';
 import { Human }           from './src/Characters/Human';
 import { Terrain }         from './src/Level/ground';
 import { Buildings }       from './src/Level/buildings';
@@ -34,6 +33,9 @@ import { createPhysicsWorld }             from './src/core/physics';
 import type { GameContext }               from './src/core/context';
 import { CameraController }              from './src/Camera/CameraController';
 import { PlayerVoice }                   from './src/Dialogue/VoiceActor';
+import { FPSController }                 from './src/FPS/FPSController';
+import { NavGrid }                       from './src/Nav/NavGrid';
+import { KillAllAngelsMission }          from './src/Missions/KillAllAngelsMission';
 
 let fpsDebugEnabled     = false;
 let physicsDebugEnabled = false;
@@ -145,45 +147,56 @@ cycle.setRain(rain);
 
 // ── Level ─────────────────────────────────────────────────────────────────────
 new Terrain(ctx);
-new Buildings(ctx);
+const buildings = new Buildings(ctx);
 new Waters(ctx);
 
 // ── Game objects ──────────────────────────────────────────────────────────────
 window.Vehicle = new Vehicle(ctx);
 window.player  = new Human(ctx);
-window.Angel   = new Enemy(ctx);
+window.angels  = [];
 
-await Promise.all([window.Vehicle.ready, window.player.ready, window.Angel.ready]);
+await Promise.all([window.Vehicle.ready, window.player.ready, buildings.ready]);
+
+// Build nav grid from building collision boxes
+const navGrid = new NavGrid(buildings.colBoxes);
 window.dispatchEvent(new CustomEvent('human-loaded'));
 
 // Intro dialogue — fires after the first user interaction to satisfy autoplay policy
 window.addEventListener('pointerdown', () => {
-    setTimeout(() => PlayerVoice.speak("Oh shit, here we go again."), 500);
+    setTimeout(() => PlayerVoice.speak("Alright! Let's go kill a God!"), 500);
 }, { once: true });
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
 const minimap = new Minimap(ctx);
-const blips = [
-    { position: window.Vehicle.carMesh!.position, color: '#ff4444' },
-    { position: window.player.mesh!.position,     color: '#44aaff' },
-    { position: window.Angel.AngelMesh!.position, color: '#eeff33' },
-];
 
 // ── Missions ──────────────────────────────────────────────────────────────────
 const missions = new MissionManager();
 
-const angelChase = new AngelChaseMission();
+const angelChase = new AngelChaseMission(ctx);
 missions.register(angelChase);
-// Yellow marker placed a few steps in front of the player spawn
 missions.addMarker('angel-chase-1', new THREE.Vector3(-118, 1, 22), 'Hunt the Angel');
 
-const scoutCity = new ScoutMission();
+const purgeAngels = new KillAllAngelsMission(ctx, navGrid);
+missions.register(purgeAngels);
+missions.addMarker('kill-all-angels', new THREE.Vector3(-105, 1, 22), 'Purge the Angels', 0xff4400);
+
+const scoutCity = new ScoutMission(navGrid);
 missions.register(scoutCity);
 // Blue marker offset from the angel-chase marker so both are reachable
 missions.addMarker('scout-city-1', new THREE.Vector3(-108, 1, 30), 'Scout the City', 0x00ccff);
 
 // ── Camera ────────────────────────────────────────────────────────────────────
 const cameraController = new CameraController();
+
+// ── FPS shooter mode ──────────────────────────────────────────────────────────
+const fpsController = new FPSController(ctx, window.player);
+
+// V key enables FPS (FPSController's own keydown handler disables it via V too)
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyV' && !fpsController.active) fpsController.enable();
+});
+// Mobile button dispatches fps-toggle
+window.addEventListener('fps-toggle', () => fpsController.toggle());
 
 // ── FPS counter ───────────────────────────────────────────────────────────────
 const fpsDisplay = document.createElement('div');
@@ -282,7 +295,8 @@ function animate(timestamp: number = 0) {
 
     if (window.Vehicle) window.Vehicle.physicsUpdate();
     if (window.player)  window.player.update(delta);
-    if (window.Angel)   window.Angel.physicsProcess(delta);
+    for (const angel of window.angels) angel.physicsProcess(delta);
+    if (fpsController.active) fpsController.update(delta);
 
     // Void detection — check car and player
     if (!gameOverActive) {
@@ -302,7 +316,9 @@ function animate(timestamp: number = 0) {
 
     if (physicsDebugEnabled) cannonDebugger?.update();
 
-    const playerPos = window.player.mesh?.position ?? new THREE.Vector3();
+    const playerPos = (window.Vehicle?.isDriving && window.Vehicle.carMesh)
+        ? window.Vehicle.carMesh.position
+        : window.player.mesh?.position ?? new THREE.Vector3();
     rain.update(delta, playerPos);
 
     if (gameOverActive && window.player.mesh) {
@@ -310,17 +326,32 @@ function animate(timestamp: number = 0) {
         const mp = window.player.mesh.position;
         camera.position.lerp(new THREE.Vector3(mp.x, mp.y + 2.5, mp.z - 5), 0.04);
         camera.lookAt(mp.x, mp.y + 1, mp.z);
-    } else if (!gameOverActive) {
+    } else if (!gameOverActive && !fpsController.active) {
+        // FPS controller drives the camera itself when active
         const cameraTarget = (window.Vehicle?.isDriving && window.Vehicle.carMesh)
             ? window.Vehicle.carMesh.position
             : playerPos;
         cameraController.update(delta, cameraTarget, camera);
     }
 
-    minimap.update(playerPos, blips);
+    minimap.update(playerPos, [
+        { position: window.Vehicle.carMesh!.position, color: '#ff4444' },
+        { position: window.player.mesh!.position,     color: '#44aaff' },
+        ...window.angels.filter(a => a.AngelMesh && !a.isDead)
+                        .map(a => ({ position: a.AngelMesh!.position, color: '#eeff33' })),
+    ]);
     missions.update(delta, playerPos);
 
+    // Pass 1 — world
     renderer.render(scene, camera);
+
+    // Pass 2 — weapon (clear depth so the gun is never occluded by walls)
+    if (fpsController.active) {
+        renderer.autoClear = false;
+        renderer.clearDepth();
+        renderer.render(fpsController.weaponScene, camera);
+        renderer.autoClear = true;
+    }
 }
 
 animate();

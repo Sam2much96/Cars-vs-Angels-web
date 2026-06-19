@@ -12,8 +12,8 @@
 
 import * as THREE from 'three';
 import { Mission } from './Mission';
+import type { NavGrid } from '../Nav/NavGrid';
 
-// Tweak these positions to land on solid ground if needed
 const CHECKPOINTS = [
     { pos: new THREE.Vector3(-60, 2, -40),  label: 'Checkpoint A' },
     { pos: new THREE.Vector3(30,  2,  80),  label: 'Checkpoint B' },
@@ -22,20 +22,25 @@ const CHECKPOINTS = [
 const REACH_RADIUS = 8;
 
 export class ScoutMission extends Mission {
+    private readonly navGrid: NavGrid;
     private current = 0;
-    private discs: THREE.Mesh[] = [];
+    private discs:  THREE.Mesh[] = [];
+    // Snapped positions set in onStart() — may differ from CHECKPOINTS if a point was inside a building
+    private resolvedPositions: THREE.Vector3[] = [];
 
-    constructor() {
+    constructor(navGrid: NavGrid) {
         super('scout-city-1', 'Scout the City', 3000);
-        this.timeLimit  = 180;
+        this.navGrid   = navGrid;
+        this.timeLimit = 180;
         this.objectives = CHECKPOINTS.map(c => ({ label: `Reach ${c.label}`, completed: false }));
     }
 
     protected onStart(): void {
-        this.current = 0;
-        this.discs   = [];
+        this.current           = 0;
+        this.discs             = [];
+        this.resolvedPositions = CHECKPOINTS.map(c => this.navGrid.snapToWalkable(c.pos));
 
-        for (const { pos } of CHECKPOINTS) {
+        for (const pos of this.resolvedPositions) {
             const geo  = new THREE.CylinderGeometry(REACH_RADIUS * 0.9, REACH_RADIUS * 0.9, 0.25, 32);
             const mat  = new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
             const disc = new THREE.Mesh(geo, mat);
@@ -50,11 +55,11 @@ export class ScoutMission extends Mission {
             ? window.Vehicle?.carMesh?.position
             : window.player?.mesh?.position;
 
-        if (!playerPos || this.current >= CHECKPOINTS.length) return;
+        if (!playerPos || this.current >= this.resolvedPositions.length) return;
 
-        const target = CHECKPOINTS[this.current];
+        const target = this.resolvedPositions[this.current];
 
-        if (playerPos.distanceTo(target.pos) < REACH_RADIUS) {
+        if (playerPos.distanceTo(target) < REACH_RADIUS) {
             this.completeObjectiveAt(this.current);
 
             // Remove the disc for this checkpoint

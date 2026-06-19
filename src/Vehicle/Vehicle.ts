@@ -66,13 +66,13 @@ export class Vehicle {
 
     //driving controls
     public maxSteerVal = 0.5
-    public maxForce = 2000
+    public maxForce = 5000        // scaled 2.5× with mass
     public brakeForce = 1000000
 
     // flying controls
-    public thrust = 5000; // forward/back
-    public lift = 5000;    // up/down
-    public turn = 0.005;   // yaw
+    public thrust = 12500;  // forward/back — scaled 2.5× with mass
+    public lift   = 12500;  // up/down     — scaled 2.5× with mass
+    public turn   = 0.005;  // yaw (direct angular-velocity increment, mass-independent)
 
     //gravite
     public gravity : number;
@@ -176,12 +176,12 @@ export class Vehicle {
             
                 // 1. Create chassis body
                 const chassisShape = new CANNON.Box(new CANNON.Vec3(3.9, 0.3, 1.6)); // half-extents
-                const chassisBody = new CANNON.Body({ 
-                    mass: 2_000, 
-                    position: new CANNON.Vec3(this.spawnPoint.x,this.spawnPoint.y, this.spawnPoint.z), // set car collision above the citymap terrain
-                    angularVelocity: new CANNON.Vec3(0,0.5,0),
+                const chassisBody = new CANNON.Body({
+                    mass: 5_000,
+                    position: new CANNON.Vec3(this.spawnPoint.x,this.spawnPoint.y, this.spawnPoint.z),
+                    angularVelocity: new CANNON.Vec3(0, 0.5, 0),
                     angularDamping: 0.5,
-                    linearDamping: 0.01
+                    linearDamping: 0.01,
                 });
             
             
@@ -201,12 +201,12 @@ export class Vehicle {
                 const wheelOptions = {
                     radius: 0.6,
                     directionLocal: new CANNON.Vec3(0, -1, 0),
-                    suspensionStiffness: 30,
+                    suspensionStiffness: 75,       // 2.5× — prevents chassis sag at higher mass
                     suspensionRestLength: 0.3,
                     frictionSlip: 1,
                     dampingRelaxation: 2.3,
                     dampingCompression: 4.4,
-                    maxSuspensionForce: 100000,
+                    maxSuspensionForce: 250000,    // 2.5× — handles the heavier chassis weight
                     rollInfluence: 0.01,
                     axleLocal: new CANNON.Vec3(0, 0, 1),
                     chassisConnectionPointLocal: new CANNON.Vec3(-1, 0, 1),

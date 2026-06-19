@@ -235,24 +235,24 @@ export class MissionHUD {
     if (type === 'complete') {
       this.resultEl.innerHTML = `
         <div style="
-          font-size: 36px;
-          font-weight: 900;
+          font-family: 'PricedownBl', sans-serif;
+          font-size: 42px;
           color: #44ff88;
           text-shadow: 0 0 24px rgba(68,255,136,0.5), 0 2px 8px rgba(0,0,0,0.9);
           letter-spacing: 2px;
           margin-bottom: 8px;
         ">MISSION PASSED</div>
         <div style="
-          font-size: 17px;
-          font-weight: 600;
+          font-family: 'PricedownBl', sans-serif;
+          font-size: 20px;
           color: #ffe066;
           margin-bottom: 6px;
           text-shadow: 0 2px 6px rgba(0,0,0,0.8);
         ">${title}</div>
         ${reward > 0 ? `
         <div style="
-          font-size: 22px;
-          font-weight: 700;
+          font-family: 'PricedownBl', sans-serif;
+          font-size: 26px;
           color: #ffffff;
           text-shadow: 0 2px 6px rgba(0,0,0,0.8);
         ">+$${reward.toLocaleString()}</div>` : ''}
@@ -260,16 +260,16 @@ export class MissionHUD {
     } else {
       this.resultEl.innerHTML = `
         <div style="
-          font-size: 36px;
-          font-weight: 900;
+          font-family: 'PricedownBl', sans-serif;
+          font-size: 42px;
           color: #ff3333;
           text-shadow: 0 0 24px rgba(255,51,51,0.5), 0 2px 8px rgba(0,0,0,0.9);
           letter-spacing: 2px;
           margin-bottom: 8px;
         ">MISSION FAILED</div>
         <div style="
-          font-size: 15px;
-          font-weight: 400;
+          font-family: 'PricedownBl', sans-serif;
+          font-size: 18px;
           color: rgba(255,255,255,0.7);
           text-shadow: 0 2px 6px rgba(0,0,0,0.8);
         ">${failReason}</div>

@@ -118,13 +118,24 @@ export class Minimap {
   ) {
     this.frameCount++;
 
+    // Camera yaw drives the map rotation — read every frame so blips stay in sync
+    // rotation.order is 'YXZ' in both FPS and third-person modes, so .y is yaw
+    const yaw    = (window.camera?.rotation.y ?? 0);
+    const cosYaw = Math.cos(yaw);
+    const sinYaw = Math.sin(yaw);
+
     // ── Expensive GPU work — throttled to every RENDER_EVERY frames ───────────
     if (this.frameCount % this.RENDER_EVERY === 0) {
-      const S = this.TEX_SIZE;
+      const S  = this.TEX_SIZE;
+      const px = playerPosition.x;
+      const py = playerPosition.y;
+      const pz = playerPosition.z;
 
-      // Move ortho camera above player
-      this.orthoCamera.position.set(playerPosition.x, playerPosition.y + 200, playerPosition.z);
-      this.orthoCamera.lookAt(playerPosition.x, playerPosition.y, playerPosition.z);
+      // Rotate ortho camera so the player's forward direction is at the top.
+      // camera forward in XZ = (-sinYaw, 0, -cosYaw); set that as ortho "up".
+      this.orthoCamera.up.set(-sinYaw, 0, -cosYaw);
+      this.orthoCamera.position.set(px, py + 200, pz);
+      this.orthoCamera.lookAt(px, py, pz);
 
       // Render scene into render target
       const prevTarget = this.renderer.getRenderTarget();
@@ -150,35 +161,37 @@ export class Minimap {
         this.readCanvas.toDataURL();
     }
 
-    // Draw blips on the overlay canvas
+    // ── Overlay canvas — blips + player marker ────────────────────────────────
     const ctx  = this.ctx;
     const half = this.mapSize / 2;
     ctx.clearRect(0, 0, this.mapSize, this.mapSize);
 
-    // Clip to circle
+    // Clip everything to circle
     ctx.save();
     ctx.beginPath();
     ctx.arc(half, half, half, 0, Math.PI * 2);
     ctx.clip();
 
-    // Draw entity blips
+    // Draw entity blips — rotate world-space offset by yaw to match the texture
     for (const blip of blips) {
       const dx = blip.position.x - playerPosition.x;
       const dz = blip.position.z - playerPosition.z;
-      const rawBx = half + (dx / this.mapRange) * half;
-      const rawBy = half + (dz / this.mapRange) * half;
+
+      // Rotate (dx, dz) by the same yaw applied to the ortho camera
+      const rotDx = dx * cosYaw - dz * sinYaw;
+      const rotDz = dx * sinYaw + dz * cosYaw;
+
+      const rawBx = half + (rotDx / this.mapRange) * half;
+      const rawBy = half + (rotDz / this.mapRange) * half;
       const distFromCenter = Math.hypot(rawBx - half, rawBy - half);
       const edgeMargin = 10;
 
       if (distFromCenter > half - edgeMargin) {
-        // Off-map: draw an arrow at the circle edge pointing toward the target
+        // Off-map: arrow at circle edge pointing toward target
         const angle = Math.atan2(rawBy - half, rawBx - half);
         const edgeR = half - edgeMargin;
-        const ex = half + Math.cos(angle) * edgeR;
-        const ey = half + Math.sin(angle) * edgeR;
-
         ctx.save();
-        ctx.translate(ex, ey);
+        ctx.translate(half + Math.cos(angle) * edgeR, half + Math.sin(angle) * edgeR);
         ctx.rotate(angle + Math.PI / 2);
         ctx.beginPath();
         ctx.moveTo(0, -6);
@@ -189,7 +202,7 @@ export class Minimap {
         ctx.fill();
         ctx.restore();
       } else {
-        // On-map: draw normal dot
+        // On-map: filled dot
         ctx.beginPath();
         ctx.arc(rawBx, rawBy, 4, 0, Math.PI * 2);
         ctx.fillStyle = blip.color;
@@ -200,22 +213,28 @@ export class Minimap {
       }
     }
 
-    // Player blip — always centered, white arrow pointing forward
+    // Player blip — triangle pointing up (= camera forward in the rotated map)
+    ctx.save();
+    ctx.translate(half, half);
     ctx.beginPath();
-    ctx.arc(half, half, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffffff';
+    ctx.moveTo( 0, -8);  // tip — forward / top
+    ctx.lineTo( 5,  5);
+    ctx.lineTo(-5,  5);
+    ctx.closePath();
+    ctx.fillStyle   = '#ffffff';
     ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth   = 1.5;
     ctx.stroke();
-
     ctx.restore();
 
-    // North label
+    ctx.restore(); // end circle clip
+
+    // Forward-direction label at the top of the compass circle
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.font      = 'bold 11px sans-serif';
+    ctx.font      = 'bold 10px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('N', half, 14);
+    ctx.fillText('▲', half, 13);
   }
 
   /**

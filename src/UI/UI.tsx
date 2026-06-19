@@ -20,6 +20,7 @@ import { VirtualButton } from '../UI/Inputs/VirtualButton.tsx';
 import { TitleScreen } from './TitleScreen.tsx';
 import { PauseMenu }   from './PauseMenu.tsx';
 import { GameOver }    from './GameOver.tsx';
+import { FPSOverlay }  from './FPSOverlay.tsx';
 import './styles/styles.css';
 
 const inventory = new Inventory();
@@ -29,6 +30,7 @@ export default function UI() {
     const [cash,      setCash]      = useState<number>(inventory.cash);
     const [health,    setHealth]    = useState<number>(inventory.health);
     const [inVehicle, setInVehicle] = useState<boolean>(false);
+    const [inFPS,     setInFPS]     = useState<boolean>(false);
 
     // ── inventory / health updates ──────────────────────────────
     useEffect(() => {
@@ -78,10 +80,23 @@ export default function UI() {
         return () => clearInterval(interval);
     }, []);
 
+    // ── FPS mode enter / exit ───────────────────────────────────
+    useEffect(() => {
+        const onEnter = () => setInFPS(true);
+        const onExit  = () => setInFPS(false);
+        window.addEventListener('fps-mode-enter', onEnter);
+        window.addEventListener('fps-mode-exit',  onExit);
+        return () => {
+            window.removeEventListener('fps-mode-enter', onEnter);
+            window.removeEventListener('fps-mode-exit',  onExit);
+        };
+    }, []);
+
     // ── button handlers ─────────────────────────────────────────
     const handleInteract   = () => window.dispatchEvent(new CustomEvent("player-interact"));
     const handleGravityOff = () => window.dispatchEvent(new CustomEvent("vehicle-gravity-off"));
     const handleGravityOn  = () => window.dispatchEvent(new CustomEvent("vehicle-gravity-on"));
+    const handleFPSToggle  = () => window.dispatchEvent(new CustomEvent("fps-toggle"));
 
     // ── render ──────────────────────────────────────────────────
     return (
@@ -90,6 +105,7 @@ export default function UI() {
             <TitleScreen />
             <PauseMenu />
             <GameOver />
+            <FPSOverlay />
 
             <div id="clock">{time}</div>
             <div id="cash">${cash.toLocaleString()}</div>
@@ -98,9 +114,11 @@ export default function UI() {
             <VirtualJoystickOverlay />
             <CameraJoystickOverlay />
 
-            <VirtualButton label="Enter" onClick={handleInteract} />
+            {/* FPS joysticks + GTA buttons hidden while in FPS mode */}
+            {!inFPS && <VirtualButton label="Enter" onClick={handleInteract} />}
+            {!inFPS && <VirtualButton label="FPS" onClick={handleFPSToggle} bottom="230px" right="16px" />}
 
-            {inVehicle && (
+            {inVehicle && !inFPS && (
                 <>
                     <VirtualButton label="Fly"  onClick={handleGravityOff} bottom="160px" right="60px"  />
                     <VirtualButton label="Land" onClick={handleGravityOn}  bottom="160px" right="150px" />
